@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Microsoft Cognitive Services Speech SDK JavaScript Quickstart</title>
+  <meta charset="utf-8" />
+</head>
+<body style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:13px;">
+  <div id="warning">
+    <h1 style="font-weight:500;">Speech Recognition Speech SDK not found (microsoft.cognitiveservices.speech.sdk.bundle.js missing).</h1>
+  </div>
+
+  <div id="content" style="display:none">
+    <table width="100%">
+      <tr>
+        <td></td>
+        <td><h1 style="font-weight:500;">Microsoft Cognitive Services Speech SDK JavaScript Quickstart</h1></td>
+      </tr>
+      <tr>
+        <td></td>
+        <td><button id="talkButton">Start Intent Recognition</button></td>
+      </tr>
+      <tr>
+        <td align="right" valign="top">Input Text</td>
+        <td><textarea id="phraseDiv" style="display: inline-block;width:500px;height:200px"></textarea></td>
+      </tr>
+      <tr>
+        <td align="right" valign="top">Result</td>
+        <td><textarea id="statusDiv" style="display: inline-block;width:500px;height:100px"></textarea></td>
+      </tr>
+      <tr>
+        <td align="right" valign="top">Respond</td>
+        <td><textarea id="respondDiv" style="display: inline-block;width:500px;height:100px"></textarea></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Speech SDK reference sdk. -->
+  <script src="https://aka.ms/csspeech/jsbrowserpackageraw"></script>
+
+  <!-- Speech SDK USAGE -->
+  <script src="speechSDK.js"></script>
+</body>
+</html>
