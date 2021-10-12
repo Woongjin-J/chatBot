@@ -1,12 +1,10 @@
 (function() {
   "use strict";
 
-  // status fields and start button in UI
-  var phraseDiv;
-  var statusDiv;
-  var talkButton;
+  // import * as sdk from "microsoft-cognitiveservices-speech-sdk";
 
   // subscription key and region for speech services.
+  var speechKey = "f470e25b6841498883626459deb9a1ba";
   var subscriptionKey = "e7531fd877724d46b2395cb8cf7adfe6";
   var serviceRegion = "westus";
   var appId = "90172fe8-d914-4019-ae6a-e148ac29d755";
@@ -30,14 +28,15 @@
     id("talkButton").disabled = true;
     id("phraseDiv").innerHTML = "";
     id("statusDiv").innerHTML = "";
+    id("respondDiv").innerHTML = "";
 
-    let audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
     if (subscriptionKey === "" || subscriptionKey === "subscription") {
       alert("Please enter your Microsoft Cognitive Services Speech subscription key!");
       id("talkButton").disabled = false;
       return;
     }
-    var speechConfig = SpeechSDK.SpeechConfig.fromSubscription(subscriptionKey, serviceRegion);
+    const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(subscriptionKey, serviceRegion);
+    const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
 
     speechConfig.speechRecognitionLanguage = "en-US";
     recognizer = new SpeechSDK.IntentRecognizer(speechConfig, audioConfig);
@@ -50,51 +49,89 @@
       recognizer.addAllIntents(lm);
     }
 
-    recognizer.recognizeOnceAsync(
-      function (result) {
-        window.console.log(result);
-        // window.console.log("it's recording");
-        id("phraseDiv").innerHTML = result.text + "\r\n";
+    recognizer.recognizeOnceAsync(recognize, errCheck);
+  }
 
-        id("statusDiv").innerHTML += "(continuation) Reason: " + SpeechSDK.ResultReason[result.reason];
-        switch (result.reason) {
+  function recognize(result) {
+    var jsonResult;
+    window.console.log(result);
+    id("phraseDiv").innerHTML = result.text + "\r\n";
+    id("statusDiv").innerHTML += "(continuation) Reason: " + SpeechSDK.ResultReason[result.reason] + "\r\n";
+    switch (result.reason) {
 
-          case SpeechSDK.ResultReason.RecognizedSpeech:
-            id("statusDiv").innerHTML += " Text: " + result.text;
-            break;
+      case SpeechSDK.ResultReason.RecognizedSpeech:
+        id("statusDiv").innerHTML += " Text: " + result.text;
+        break;
 
-          case SpeechSDK.ResultReason.RecognizedIntent:
-            id("statusDiv").innerHTML += " Text: " + result.text + " IntentId: " + result.intentId;
+      case SpeechSDK.ResultReason.RecognizedIntent:
+        id("statusDiv").innerHTML += " Text: " + result.text + " IntentId: " + result.intentId + "\r\n";
 
-            // The actual JSON returned from Language Understanding is a bit more complex to get to, but it is available for things like
-            // the entity name and type if part of the intent.
-            id("statusDiv").innerHTML += " Intent JSON: " + result.properties.getProperty(SpeechSDK.PropertyId.LanguageUnderstandingServiceResponse_JsonResult);
-            id("phraseDiv").innerHTML += result.properties.getProperty(SpeechSDK.PropertyId.LanguageUnderstandingServiceResponse_JsonResult) + "\r\n";
-            break;
+        // The actual JSON returned from Language Understanding is a bit more complex to get to, but it is available for things like
+        // the entity name and type if part of the intent.
+        jsonResult = result.properties.getProperty(SpeechSDK.PropertyId.LanguageUnderstandingServiceResponse_JsonResult);
+        id("statusDiv").innerHTML += " Intent JSON: " + jsonResult + "\r\n";
+        id("phraseDiv").innerHTML += jsonResult + "\r\n";
+        giveResponse(jsonResult);
+        break;
 
-          case SpeechSDK.ResultReason.NoMatch:
-            var noMatchDetail = SpeechSDK.NoMatchDetails.fromResult(result);
-            id("statusDiv").innerHTML += " NoMatchReason: " + SpeechSDK.NoMatchReason[noMatchDetail.reason];
-            break;
+      case SpeechSDK.ResultReason.NoMatch:
+        var noMatchDetail = SpeechSDK.NoMatchDetails.fromResult(result);
+        id("statusDiv").innerHTML += " NoMatchReason: " + SpeechSDK.NoMatchReason[noMatchDetail.reason];
+        break;
 
-          case SpeechSDK.ResultReason.Canceled:
-            var cancelDetails = SpeechSDK.CancellationDetails.fromResult(result);
-            id("statusDiv").innerHTML += " CancellationReason: " + SpeechSDK.CancellationReason[cancelDetails.reason];
+      case SpeechSDK.ResultReason.Canceled:
+        var cancelDetails = SpeechSDK.CancellationDetails.fromResult(result);
+        id("statusDiv").innerHTML += " CancellationReason: " + SpeechSDK.CancellationReason[cancelDetails.reason];
 
-            if (cancelDetails.reason === SpeechSDK.CancellationReason.Error) {
-              id("statusDiv").innerHTML += ": " + cancelDetails.errorDetails;
-            }
-            break;
+        if (cancelDetails.reason === SpeechSDK.CancellationReason.Error) {
+          id("statusDiv").innerHTML += ": " + cancelDetails.errorDetails;
         }
-        id("statusDiv").innerHTML += "\r\n";
-        id("talkButton").disabled = false;
-      },
-      function (err) {
-        window.console.log(err);
+        break;
+    }
+    id("statusDiv").innerHTML += "\r\n";
+    id("talkButton").disabled = false;
+    return jsonResult;
+  }
 
-        id("phraseDiv").innerHTML += "ERROR: " + err;
-        id("talkButton").disabled = false;
-    });
+  function giveResponse(result) {
+    result = JSON.parse(result);
+    var text = result.entities[0].entity + "\'s weather is 25 degree.\n" + result.topScoringIntent.intent;
+    id("respondDiv").innerHTML += text;
+
+    const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(speechKey, serviceRegion);
+    const synthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig);
+
+    synthesizer.speakTextAsync(text,
+      function(result) {
+        // const {audioData } = result;
+        synthesizer.close();
+        // const bufferStream = new PassThrough();
+        // bufferStream.end(Buffer.from(audioData));
+        // return bufferStream;
+        return result.audioData;
+      },
+      function(error) {
+        console.log(error);
+        synthesizer.close();
+      });
+  }
+
+  // function speakResult(result) {
+  //   const { audioData } = result;
+
+  //   synthesizer.close();
+
+  //   // convert arrayBuffer to stream
+  //   // return stream
+  //   const bufferStream = new PassThrough();
+  //   bufferStream.end(Buffer.from(audioData));
+  //   return bufferStream;
+  // }
+
+  function errCheck(err) {
+    window.console.log(err);
+    id("phraseDiv").innerHTML += "ERROR: " + err;
+    id("talkButton").disabled = false;
   }
 
 
