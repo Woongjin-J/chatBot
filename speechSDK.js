@@ -12,6 +12,9 @@
 
   document.addEventListener("DOMContentLoaded", init);
 
+  /**
+   * Initialize the page
+   */
   function init() {
     id("talkButton").addEventListener("click", startTalk);
 
@@ -23,17 +26,15 @@
     }
   }
 
+  /**
+   * Clear the text content in the page and starts recording from the microphone
+   */
   function startTalk() {
     id("talkButton").disabled = true;
     id("phraseDiv").innerHTML = "";
     id("statusDiv").innerHTML = "";
     id("respondDiv").innerHTML = "";
 
-    if (subscriptionKey === "" || subscriptionKey === "subscription") {
-      alert("Please enter your Microsoft Cognitive Services Speech subscription key!");
-      id("talkButton").disabled = false;
-      return;
-    }
     const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(subscriptionKey, serviceRegion);
     const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
 
@@ -44,13 +45,16 @@
     // See https://www.luis.ai/home for more information on LUIS.
     if (appId !== "" && appId !== "YOUR_LANGUAGE_UNDERSTANDING_APP_ID") {
       let lm = SpeechSDK.LanguageUnderstandingModel.fromAppId(appId);
-
       recognizer.addAllIntents(lm);
     }
-
     recognizer.recognizeOnceAsync(recognize, error);
   }
 
+  /**
+   * Prints out the speech recorded and the result of intent recognition
+   * If no intent matched, prints out the speech text only
+   * @param {Object} result Speech intent recognition result
+   */
   function recognize(result) {
     let jsonResult;
     window.console.log(result);
@@ -88,11 +92,14 @@
     }
     id("statusDiv").innerHTML += "\r\n";
     id("talkButton").disabled = false;
-    return jsonResult;
   }
 
+  /**
+   * Determines the request and return the requested information (i.e. current weather)
+   * @param {JSON} result Speech intent recognition result
+   */
   function giveResponse(result) {
-    result = JSON.parse(result);
+    result = JSON.parse(result); // Convert to JS readable JSON
 
     const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(speechKey, serviceRegion);
     const synthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig);
@@ -105,21 +112,24 @@
     let today = new Date();
     let len = entities.length;
     let time;
+
+    // Update the givenDate if it's not the current date
     if (len > 0 && entities[len-1].type === "builtin.datetimeV2.date") {
       time = entities[len-1].resolution.values[0].timex;
       givenDate = new Date(time);
-
       if (givenDate.getDate() === today.getDate()) givenDate = today;
     }
-    console.log(parseInt(givenDate.getTime()/1000));
-    console.log(parseInt(today.getTime()/1000));
+    else if (len > 0 && entities[len-1].type === "builtin.datetimeV2.duration") {
+      time = today.getTime() + entities[len-1].resolution.values[0].value * 1000;
+      givenDate = new Date(time);
+    }
 
-    if (entities.length === 0 || (entities.length === 1 && (entities[0].type === "builtin.datetimeV2.datetime" ||
-                                                            entities[0].type === "builtin.datetimeV2.date"))) { // current location
+    if (entities.length === 0 || (entities.length === 1 && isTimeEntity(entities))) { // current location
       navigator.geolocation.getCurrentPosition(function(pos) {
+          time = parseInt(givenDate.getTime()/1000);
           url = ONECALL_URL.replace('{lat}', pos.coords.latitude);
           url = url.replace('{lon}', pos.coords.longitude);
-          url = url.replace('{time}', parseInt(givenDate.getTime()/1000));
+          url = url.replace('{time}', time);
           url = url.replace('{forcast}', '');
           console.log(url);
           fetch(url)
@@ -148,6 +158,10 @@
         .catch();
     }
 
+    /**
+     * Prints out the weather condition and output the speech through speaker
+     * @param {JSON} info information about the weather
+     */
     function weather(info) {
       console.log(info);
       if (intent === "Weather.CheckWeatherValue") {
@@ -182,6 +196,11 @@
     }
   }
 
+  /**
+   * Converts the noun phrase to adjective
+   * @param {String} condition The weather condition
+   * @returns condition Converted string
+   */
   function update_condition(condition) {
     if (condition === "Clouds") {
       condition = "cloudy";
@@ -195,6 +214,21 @@
     return condition;
   }
 
+  /**
+   * Checks whether the entity type is a Time/Date entity
+   * @param {JSON} entities Speech prediction objects
+   * @returns {Boolean}
+   */
+  function isTimeEntity(entities) {
+    return entities[0].type === "builtin.datetimeV2.datetime" ||
+           entities[0].type === "builtin.datetimeV2.date" ||
+           entities[0].type === "builtin.datetimeV2.duration";
+  }
+
+  /**
+   * Update the page with an error message if error occured
+   * @param {String} err Error message
+   */
   function error(err) {
     window.console.log(err);
     id("phraseDiv").innerHTML += "ERROR: " + err;
