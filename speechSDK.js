@@ -176,9 +176,15 @@
         else { // future
           let diff_in_time = givenDate.getTime() - today.getTime();
           let diff_in_days = diff_in_time / (1000 * 3600 * 24);
-          condition = update_condition(info.daily[Math.round(diff_in_days)].weather[0].main);
-          text = "It will be " + condition + " and the temperature will be " +
-                              info.daily[Math.round(diff_in_days)].temp.day + " celcius degree.\n";
+
+          if (diff_in_days > 7) {
+            text = "Sorry, I can only forcast the weather up to 7 days.";
+          }
+          else {
+            condition = update_condition(info.daily[Math.round(diff_in_days)].weather[0].main);
+            text = "It will be " + condition + " and the temperature will be " +
+                                info.daily[Math.round(diff_in_days)].temp.day + " celcius degree.\n";
+          }
         }
       }
 
