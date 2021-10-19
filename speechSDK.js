@@ -13,7 +13,7 @@
   document.addEventListener("DOMContentLoaded", init);
 
   /**
-   * Initialize the page
+   * Initialize the page.
    */
   function init() {
     id("talkButton").addEventListener("click", startTalk);
@@ -27,7 +27,7 @@
   }
 
   /**
-   * Clear the text content in the page and starts recording from the microphone
+   * Clear the text content in the page and starts recording from the microphone.
    */
   function startTalk() {
     id("talkButton").disabled = true;
@@ -51,8 +51,8 @@
   }
 
   /**
-   * Prints out the speech recorded and the result of intent recognition
-   * If no intent matched, prints out the speech text only
+   * Prints out the speech recorded and the result of intent recognition.
+   * If no intent matched, prints out the speech text only.
    * @param {Object} result Speech intent recognition result
    */
   function recognize(result) {
@@ -95,7 +95,7 @@
   }
 
   /**
-   * Determines the request and return the requested information (i.e. current weather)
+   * Determines the request and return the requested information (i.e. current weather).
    * @param {JSON} result Speech intent recognition result
    */
   function giveResponse(result) {
@@ -130,8 +130,20 @@
           url = ONECALL_URL.replace('{lat}', pos.coords.latitude);
           url = url.replace('{lon}', pos.coords.longitude);
           url = url.replace('{time}', time);
-          url = url.replace('{forcast}', '');
-          console.log(url);
+
+          if (givenDate < today) {
+            let diff_in_time = today.getTime() - givenDate.getTime();
+            let diff_in_days = diff_in_time / (1000 * 3600 * 24);
+            if (diff_in_days > 5) {
+              text = "Sorry, I can only look back the weather up to 5 days ago.";
+              synthesize_speech(synthesizer, text);
+              return;
+            }
+            url = url.replace('{forcast}', '/timemachine');
+          }
+          else {
+            url = url.replace('{forcast}', '');
+          }
           fetch(url)
             .then(checkStatus)
             .then(JSON.parse)
@@ -159,7 +171,7 @@
     }
 
     /**
-     * Prints out the weather condition and output the speech through speaker
+     * Prints out the weather condition and output the speech through speaker.
      * @param {JSON} info information about the weather
      */
     function weather(info) {
@@ -178,28 +190,38 @@
           let diff_in_days = diff_in_time / (1000 * 3600 * 24);
 
           if (diff_in_days > 7) {
-            text = "Sorry, I can only forcast the weather up to 7 days.";
+            text = "Sorry, I can only foresee the weather up to 7 days after.";
           }
           else {
             condition = update_condition(info.daily[Math.round(diff_in_days)].weather[0].main);
-            text = "It will be " + condition + " and the temperature will be " +
-                                info.daily[Math.round(diff_in_days)].temp.day + " celcius degree.\n";
+            text = "It's expected to be " + condition + " and the high will be " +
+                    info.daily[Math.round(diff_in_days)].temp.max + " and the low at " +
+                    info.daily[Math.round(diff_in_days)].temp.min + " celcius degree.\n";
           }
         }
       }
-
-      synthesizer.speakTextAsync(text,
-        function(result) {
-          synthesizer.close();
-          return result.audioData;
-        },
-        function(error) {
-          console.log(error);
-          synthesizer.close();
-        });
-
-      id("respondDiv").innerHTML += text;
+      synthesize_speech(synthesizer, text);
     }
+  }
+
+  /**
+   * Converts the returning text message into audio output to play out through the speaker.
+   * Displays the returning text message in the respond block.
+   * @param {SpeechSDK} synthesizer Converts text into audio output
+   * @param {String} text Output text
+   */
+  function synthesize_speech(synthesizer, text) {
+    synthesizer.speakTextAsync(text,
+      function(result) {
+        synthesizer.close();
+        return result.audioData;
+      },
+      function(error) {
+        console.log(error);
+        synthesizer.close();
+      });
+
+    id("respondDiv").innerHTML += text;
   }
 
   /**
