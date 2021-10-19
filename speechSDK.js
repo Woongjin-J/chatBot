@@ -7,8 +7,8 @@
   const subscriptionKey = "e7531fd877724d46b2395cb8cf7adfe6";
   const serviceRegion = "westus";
   const appId = "90172fe8-d914-4019-ae6a-e148ac29d755";
-  const ONECALL_URL = "https://api.openweathermap.org/data/2.5/onecall{forcast}?lat={lat}&lon={lon}&dt={time}&units=metric&appid=acf380c77f1250015c7e020d4957ee34";
-  const COORD_URL = "https://api.openweathermap.org/data/2.5/weather?q=incheon&units=metric&APPID=acf380c77f1250015c7e020d4957ee34";
+  const ONECALL_URL = "https://api.openweathermap.org/data/2.5/onecall{forcast}?lat={lat}&lon={lon}&dt={time}&units={measurement}&appid=acf380c77f1250015c7e020d4957ee34";
+  const COORD_URL = "https://api.openweathermap.org/data/2.5/weather?q=incheon&units={measurement}&APPID=acf380c77f1250015c7e020d4957ee34";
 
   document.addEventListener("DOMContentLoaded", init);
 
@@ -57,7 +57,7 @@
    */
   function recognize(result) {
     let jsonResult;
-    window.console.log(result);
+    // window.console.log(result);
     id("phraseDiv").innerHTML = result.text + "\r\n";
     id("statusDiv").innerHTML += "(continuation) Reason: " + SpeechSDK.ResultReason[result.reason] + "\r\n";
     switch (result.reason) {
@@ -113,6 +113,26 @@
     let len = entities.length;
     let time;
 
+    let measurement = "metric";
+    let unit = "°C";
+    if (intent === "Weather.ChangeTemperatureUnit") {
+      for (let i = 0; i < len; i++) {
+        if (entities[i].type === "builtin.temperature") {
+          if (entities[i].entity === "celsius") {
+            measurement = "metric";
+            unit = "°C";
+          } else if (entities[i].entity === "fahrenheit") {
+            measurement = "imperial";
+            unit = "°F";
+          } else {
+            measurement = "standard"; // Kelvin
+            unit = "°K";
+          }
+          break;
+        }
+      }
+    }
+    ////////////// work on this; probably need to loop through? /////////
     // Update the givenDate if it's not the current date
     if (len > 0 && entities[len-1].type === "builtin.datetimeV2.date") {
       time = entities[len-1].resolution.values[0].timex;
@@ -124,13 +144,15 @@
       givenDate = new Date(time);
     }
 
-    if (entities.length === 0 || (entities.length === 1 && isTimeEntity(entities))) { // current location
+    if (is_current_location(entities, len)) { // current location
       navigator.geolocation.getCurrentPosition(function(pos) {
-          time = parseInt(givenDate.getTime()/1000);
+          time = parseInt(givenDate.getTime() / 1000);
           url = ONECALL_URL.replace('{lat}', pos.coords.latitude);
           url = url.replace('{lon}', pos.coords.longitude);
           url = url.replace('{time}', time);
+          url = url.replace('{units}', measurement);
 
+          console.log(url);
           if (givenDate < today) {
             let diff_in_time = today.getTime() - givenDate.getTime();
             let diff_in_days = diff_in_time / (1000 * 3600 * 24);
@@ -152,8 +174,8 @@
       }, error);
     }
     else { // specified location
-      let location = entities[0].entity;
-      url = COORD_URL.replace('{city}', location);
+      let city = geography(entities);
+      url = COORD_URL.replace('{city}', city);
       fetch(url)
         .then(checkStatus)
         .then(JSON.parse)
@@ -161,6 +183,7 @@
           url = ONECALL_URL.replace('{lat}', info.coord.lat);
           url = url.replace('{lon}', info.coord.lon);
           url = url.replace('{time}', parseInt(givenDate.getTime()/1000));
+          url = url.replace('{units}', measurement);
           url = url.replace('{forcast}', '');
           return fetch(url);
         })
@@ -176,14 +199,15 @@
      */
     function weather(info) {
       console.log(info);
-      if (intent === "Weather.CheckWeatherValue") {
-        let condition = update_condition(info.current.weather[0].main);
 
-        if (entities.length === 0 || time === "PRESENT_REF" || givenDate.getDate() === today.getDate()) { // current
-          text = "It's currently " + condition + " and the temperature is " + info.current.temp + " celcius degree.\n";
+      let condition = update_condition(info.current.weather[0].main);
+      if (intent === "Weather.CheckWeatherValue") {
+
+        if (len === 0 || time === "PRESENT_REF" || givenDate.getDate() === today.getDate()) { // present
+          text = "It's currently " + condition + " and the temperature is " + info.current.temp + unit + ".\n";
         }
         else if (givenDate < today) { // past
-          text = "It was " + condition + " and the temperature was " + info.current.temp + " celcius degree.\n";
+          text = "It was " + condition + " and the temperature was " + info.current.temp + unit + ".\n";
         }
         else { // future
           let diff_in_time = givenDate.getTime() - today.getTime();
@@ -196,9 +220,13 @@
             condition = update_condition(info.daily[Math.round(diff_in_days)].weather[0].main);
             text = "It's expected to be " + condition + " and the high will be " +
                     info.daily[Math.round(diff_in_days)].temp.max + " and the low at " +
-                    info.daily[Math.round(diff_in_days)].temp.min + " celcius degree.\n";
+                    info.daily[Math.round(diff_in_days)].temp.min + unit + ".\n";
           }
         }
+
+      } else if (intent === "Weather.ChangeTemperatureUnit") {
+
+        text = "It's currently " + info.current.temp + unit + ".";
       }
       synthesize_speech(synthesizer, text);
     }
@@ -243,25 +271,35 @@
   }
 
   /**
-   * Checks whether the entity type is a Time/Date entity
-   * @param {JSON} entities Speech prediction objects
+   * Determines whether the speech is referring to current location.
+   * @param {Array} entities List of entities recognized
+   * @param {int} len length of the entities list
    * @returns {Boolean}
    */
-  function isTimeEntity(entities) {
-    return entities[0].type === "builtin.datetimeV2.datetime" ||
-           entities[0].type === "builtin.datetimeV2.date" ||
-           entities[0].type === "builtin.datetimeV2.duration";
+  function is_current_location(entities, len) {
+    if (len === 0) return true;
+
+    for (let i = 0; i < len; i++) {
+      if (entities[i].type === "builtin.datetimeV2.datetime" ||
+          entities[i].type === "builtin.datetimeV2.date" ||
+          entities[i].type === "builtin.datetimeV2.duration") return true;
+    }
+    return false;
   }
 
   /**
-   * Update the page with an error message if error occured
-   * @param {String} err Error message
+   * finds the city name in the speech. If not specified, return empty string.
+   * @param {Array} entities recognized entities
+   * @returns city name (empty string otherwise)
    */
-  function error(err) {
-    window.console.log(err);
-    id("phraseDiv").innerHTML += "ERROR: " + err;
-    id("talkButton").disabled = false;
+  function geography(entities) {
+    for (let i = 0; i < entities.len; i++) {
+      if (entities[i].type === "builtin.geographyV2.city") return entities[i].entity;
+    }
+    return "";
   }
+
+
 
 
   /* ------------------------------ Helper Functions  ------------------------------ */
@@ -292,5 +330,15 @@
     } else {
       return Promise.reject(new Error(response.status + ": " + response.statusText));
     }
+  }
+
+  /**
+   * Update the page with an error message if error occured
+   * @param {String} err Error message
+   */
+  function error(err) {
+    window.console.log(err);
+    id("phraseDiv").innerHTML += "ERROR: " + err;
+    id("talkButton").disabled = false;
   }
 })();
