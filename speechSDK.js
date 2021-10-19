@@ -7,7 +7,7 @@
   const subscriptionKey = "e7531fd877724d46b2395cb8cf7adfe6";
   const serviceRegion = "westus";
   const appId = "90172fe8-d914-4019-ae6a-e148ac29d755";
-  const ONECALL_URL = "https://api.openweathermap.org/data/2.5/onecall?lat={lat}&lon={lon}&units=metric&appid=acf380c77f1250015c7e020d4957ee34";
+  const ONECALL_URL = "https://api.openweathermap.org/data/2.5/onecall{forcast}?lat={lat}&lon={lon}&dt={time}&units=metric&appid=acf380c77f1250015c7e020d4957ee34";
   const COORD_URL = "https://api.openweathermap.org/data/2.5/weather?q=incheon&units=metric&APPID=acf380c77f1250015c7e020d4957ee34";
 
   document.addEventListener("DOMContentLoaded", init);
@@ -99,15 +99,29 @@
     let intent = result.topScoringIntent.intent;
     let entities = result.entities;
     let text = "Sorry, I don't understand.";
-
-    // let url = update_url(entities);
     let url;
+
+    let givenDate = new Date();
+    let today = new Date();
+    let len = entities.length;
+    let time;
+    if (len > 0 && entities[len-1].type === "builtin.datetimeV2.date") {
+      time = entities[len-1].resolution.values[0].timex;
+      givenDate = new Date(time);
+
+      if (givenDate.getDate() === today.getDate()) givenDate = today;
+    }
+    console.log(parseInt(givenDate.getTime()/1000));
+    console.log(parseInt(today.getTime()/1000));
 
     if (entities.length === 0 || (entities.length === 1 && (entities[0].type === "builtin.datetimeV2.datetime" ||
                                                             entities[0].type === "builtin.datetimeV2.date"))) { // current location
       navigator.geolocation.getCurrentPosition(function(pos) {
           url = ONECALL_URL.replace('{lat}', pos.coords.latitude);
           url = url.replace('{lon}', pos.coords.longitude);
+          url = url.replace('{time}', parseInt(givenDate.getTime()/1000));
+          url = url.replace('{forcast}', '');
+          console.log(url);
           fetch(url)
             .then(checkStatus)
             .then(JSON.parse)
@@ -124,6 +138,8 @@
         .then(info => {
           url = ONECALL_URL.replace('{lat}', info.coord.lat);
           url = url.replace('{lon}', info.coord.lon);
+          url = url.replace('{time}', parseInt(givenDate.getTime()/1000));
+          url = url.replace('{forcast}', '');
           return fetch(url);
         })
         .then(checkStatus)
@@ -135,25 +151,7 @@
     function weather(info) {
       console.log(info);
       if (intent === "Weather.CheckWeatherValue") {
-        let condition = info.current.weather[0].main;
-        let len = entities.length;
-        let time;
-        let givenDate = new Date();
-        let today = new Date();
-        if (len > 0 && entities[len-1].type === "builtin.datetimeV2.date") {
-          time = entities[len-1].resolution.values[0].timex;
-          givenDate = new Date(time);
-        }
-
-        if (condition === "Clouds") {
-          condition = "cloudy";
-        } else if (condition === "Rain") {
-          condition = "raining";
-        } else if (condition === "Mist") {
-          condition = "foggy";
-        } else {
-          condition = condition.toLowerCase();
-        }
+        let condition = update_condition(info.current.weather[0].main);
 
         if (entities.length === 0 || time === "PRESENT_REF" || givenDate.getDate() === today.getDate()) { // current
           text = "It's currently " + condition + " and the temperature is " + info.current.temp + " celcius degree.\n";
@@ -162,10 +160,13 @@
           text = "It was " + condition + " and the temperature was " + info.current.temp + " celcius degree.\n";
         }
         else { // future
-          text = "It will be " + condition + " and the temperature will be " + info.current.temp + " celcius degree.\n";
+          let diff_in_time = givenDate.getTime() - today.getTime();
+          let diff_in_days = diff_in_time / (1000 * 3600 * 24);
+          condition = update_condition(info.daily[Math.round(diff_in_days)].weather[0].main);
+          text = "It will be " + condition + " and the temperature will be " +
+                              info.daily[Math.round(diff_in_days)].temp.day + " celcius degree.\n";
         }
       }
-      id("respondDiv").innerHTML += text;
 
       synthesizer.speakTextAsync(text,
         function(result) {
@@ -176,7 +177,22 @@
           console.log(error);
           synthesizer.close();
         });
+
+      id("respondDiv").innerHTML += text;
     }
+  }
+
+  function update_condition(condition) {
+    if (condition === "Clouds") {
+      condition = "cloudy";
+    } else if (condition === "Rain") {
+      condition = "raining";
+    } else if (condition === "Mist") {
+      condition = "foggy";
+    } else {
+      condition = condition.toLowerCase();
+    }
+    return condition;
   }
 
   function error(err) {
