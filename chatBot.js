@@ -8,7 +8,7 @@
   const serviceRegion = "westus";
   const appId = "90172fe8-d914-4019-ae6a-e148ac29d755";
   const ONECALL_URL = "https://api.openweathermap.org/data/2.5/onecall{forcast}?lat={lat}&lon={lon}&dt={time}&units={measurement}&appid=acf380c77f1250015c7e020d4957ee34";
-  const COORD_URL = "https://api.openweathermap.org/data/2.5/weather?q=incheon&units={measurement}&APPID=acf380c77f1250015c7e020d4957ee34";
+  const COORD_URL = "https://api.openweathermap.org/data/2.5/weather?q={city}&units={measurement}&APPID=acf380c77f1250015c7e020d4957ee34";
 
   document.addEventListener("DOMContentLoaded", init);
 
@@ -115,34 +115,39 @@
 
     let measurement = "metric";
     let unit = "°C";
-    if (intent === "Weather.ChangeTemperatureUnit") {
-      for (let i = 0; i < len; i++) {
-        if (entities[i].type === "builtin.temperature") {
-          if (entities[i].entity === "celsius") {
-            measurement = "metric";
-            unit = "°C";
-          } else if (entities[i].entity === "fahrenheit") {
-            measurement = "imperial";
-            unit = "°F";
-          } else {
-            measurement = "standard"; // Kelvin
-            unit = "°K";
-          }
-          break;
+    for (let i = 0; i < len; i++) {
+      if (entities[i].type === "builtin.temperature") {
+        if (entities[i].entity === "celsius") {
+          measurement = "metric";
+          unit = "°C";
+        } else if (entities[i].entity === "fahrenheit") {
+          measurement = "imperial";
+          unit = "°F";
+        } else {
+          measurement = "standard"; // Kelvin
+          unit = "°K";
         }
+        break;
       }
     }
+
     ////////////// work on this; probably need to loop through? /////////
     // Update the givenDate if it's not the current date
-    if (len > 0 && entities[len-1].type === "builtin.datetimeV2.date") {
-      time = entities[len-1].resolution.values[0].timex;
-      givenDate = new Date(time);
-      if (givenDate.getDate() === today.getDate()) givenDate = today;
+    if (len > 0) {
+      if (entities[len-1].type === "builtin.datetimeV2.date" ||
+          entities[len-1].type === "builtin.datetimeV2.datetime") {
+        time = entities[len-1].resolution.values[0].value;
+        givenDate = new Date(time);
+        if (givenDate.getDate() === today.getDate()) givenDate = today;
+      }
+      else if (entities[len-1].type === "builtin.datetimeV2.duration") {
+        time = today.getTime() + entities[len-1].resolution.values[0].value * 1000;
+        givenDate = new Date(time);
+      }
     }
-    else if (len > 0 && entities[len-1].type === "builtin.datetimeV2.duration") {
-      time = today.getTime() + entities[len-1].resolution.values[0].value * 1000;
-      givenDate = new Date(time);
-    }
+
+    let diff_in_time = today.getTime() - givenDate.getTime();
+    let diff_in_days = diff_in_time / (1000 * 3600 * 24);
 
     if (is_current_location(entities, len)) { // current location
       navigator.geolocation.getCurrentPosition(function(pos) {
@@ -150,12 +155,9 @@
           url = ONECALL_URL.replace('{lat}', pos.coords.latitude);
           url = url.replace('{lon}', pos.coords.longitude);
           url = url.replace('{time}', time);
-          url = url.replace('{units}', measurement);
+          url = url.replace('{measurement}', measurement);
 
-          console.log(url);
-          if (givenDate < today) {
-            let diff_in_time = today.getTime() - givenDate.getTime();
-            let diff_in_days = diff_in_time / (1000 * 3600 * 24);
+          if (givenDate < today) { // past
             if (diff_in_days > 5) {
               text = "Sorry, I can only look back the weather up to 5 days ago.";
               synthesize_speech(synthesizer, text);
@@ -163,7 +165,12 @@
             }
             url = url.replace('{forcast}', '/timemachine');
           }
-          else {
+          else { // present & future
+            if (diff_in_days > 7) {
+              text = "Sorry, I can only foresee the weather up to 7 days after.";
+              synthesize_speech(synthesizer, text);
+              return;
+            }
             url = url.replace('{forcast}', '');
           }
           fetch(url)
@@ -174,7 +181,12 @@
       }, error);
     }
     else { // specified location
-      let city = geography(entities);
+      if (diff_in_days > 7) {
+        text = "Sorry, I can only foresee the weather up to 7 days after.";
+        synthesize_speech(synthesizer, text);
+        return;
+      }
+      let city = geography(entities, len);
       url = COORD_URL.replace('{city}', city);
       fetch(url)
         .then(checkStatus)
@@ -183,7 +195,7 @@
           url = ONECALL_URL.replace('{lat}', info.coord.lat);
           url = url.replace('{lon}', info.coord.lon);
           url = url.replace('{time}', parseInt(givenDate.getTime()/1000));
-          url = url.replace('{units}', measurement);
+          url = url.replace('{measurement}', measurement);
           url = url.replace('{forcast}', '');
           return fetch(url);
         })
@@ -202,31 +214,30 @@
 
       let condition = update_condition(info.current.weather[0].main);
       if (intent === "Weather.CheckWeatherValue") {
-
-        if (len === 0 || time === "PRESENT_REF" || givenDate.getDate() === today.getDate()) { // present
+        if (len === 0 || givenDate.getDate() === today.getDate()) { // present
           text = "It's currently " + condition + " and the temperature is " + info.current.temp + unit + ".\n";
         }
         else if (givenDate < today) { // past
           text = "It was " + condition + " and the temperature was " + info.current.temp + unit + ".\n";
         }
         else { // future
-          let diff_in_time = givenDate.getTime() - today.getTime();
-          let diff_in_days = diff_in_time / (1000 * 3600 * 24);
-
-          if (diff_in_days > 7) {
-            text = "Sorry, I can only foresee the weather up to 7 days after.";
-          }
-          else {
-            condition = update_condition(info.daily[Math.round(diff_in_days)].weather[0].main);
-            text = "It's expected to be " + condition + " and the high will be " +
-                    info.daily[Math.round(diff_in_days)].temp.max + " and the low at " +
-                    info.daily[Math.round(diff_in_days)].temp.min + unit + ".\n";
-          }
+          condition = update_condition(info.daily[Math.round(diff_in_days)].weather[0].main);
+          text = "It's expected to be " + condition + " and the high will be " +
+                  info.daily[Math.round(diff_in_days)].temp.max + unit + " and the low at " +
+                  info.daily[Math.round(diff_in_days)].temp.min + ".\n";
         }
-
-      } else if (intent === "Weather.ChangeTemperatureUnit") {
-
-        text = "It's currently " + info.current.temp + unit + ".";
+      }
+      else if (intent === "Weather.ChangeTemperatureUnit") {
+        if (len === 0 || givenDate.getDate() === today.getDate()) { // present
+          text = "It's currently " + info.current.temp + unit + ".";
+        }
+        else if (givenDate < today) { // past
+          text = "It was " + info.current.temp + unit + ".\n";
+        }
+        else { // future
+          text = "The high is expected to be " + info.daily[Math.round(diff_in_days)].temp.max + unit +
+                 " and the low at " + info.daily[Math.round(diff_in_days)].temp.min + ".\n";
+        }
       }
       synthesize_speech(synthesizer, text);
     }
@@ -280,11 +291,9 @@
     if (len === 0) return true;
 
     for (let i = 0; i < len; i++) {
-      if (entities[i].type === "builtin.datetimeV2.datetime" ||
-          entities[i].type === "builtin.datetimeV2.date" ||
-          entities[i].type === "builtin.datetimeV2.duration") return true;
+      if (entities[i].type === "builtin.geographyV2.city") return false;
     }
-    return false;
+    return true;
   }
 
   /**
@@ -292,8 +301,8 @@
    * @param {Array} entities recognized entities
    * @returns city name (empty string otherwise)
    */
-  function geography(entities) {
-    for (let i = 0; i < entities.len; i++) {
+  function geography(entities, len) {
+    for (let i = 0; i < len; i++) {
       if (entities[i].type === "builtin.geographyV2.city") return entities[i].entity;
     }
     return "";
