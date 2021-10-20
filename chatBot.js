@@ -146,7 +146,7 @@
       }
     }
 
-    let diff_in_time = today.getTime() - givenDate.getTime();
+    let diff_in_time = Math.abs(today.getTime() - givenDate.getTime());
     let diff_in_days = diff_in_time / (1000 * 3600 * 24);
 
     if (is_current_location(entities, len)) { // current location
@@ -214,7 +214,7 @@
 
       let condition = update_condition(info.current.weather[0].main);
       if (intent === "Weather.CheckWeatherValue") {
-        if (len === 0 || givenDate.getDate() === today.getDate()) { // present
+        if (givenDate.getDate() === today.getDate()) { // present
           text = "It's currently " + condition + " and the temperature is " + info.current.temp + unit + ".\n";
         }
         else if (givenDate < today) { // past
@@ -228,8 +228,8 @@
         }
       }
       else if (intent === "Weather.ChangeTemperatureUnit") {
-        if (len === 0 || givenDate.getDate() === today.getDate()) { // present
-          text = "It's currently " + info.current.temp + unit + ".";
+        if (givenDate.getDate() === today.getDate()) { // present
+          text = "It's currently " + info.current.temp + unit + ".\n";
         }
         else if (givenDate < today) { // past
           text = "It was " + info.current.temp + unit + ".\n";
@@ -237,6 +237,26 @@
         else { // future
           text = "The high is expected to be " + info.daily[Math.round(diff_in_days)].temp.max + unit +
                  " and the low at " + info.daily[Math.round(diff_in_days)].temp.min + ".\n";
+        }
+      }
+      else if (intent === "Weather.GetWeatherAdvisory") {
+        if (givenDate.getDate() === today.getDate()) { // present
+          if (info.alerts) {
+            text = info.alerts[0].description;
+          } else {
+            text = "I don't have any weather advisory for you right now. The weather is currently " +
+                   condition + " with the temperature " + info.current.temp + unit + ".\n";
+          }
+        }
+        else if (givenDate > today) { // future
+          if (info.alerts) {
+            text = info.alerts[0].description;
+          } else {
+            condition = update_condition(info.daily[Math.round(diff_in_days)].weather[0].main);
+            text = "I don't have any weather advisory for you right now. The weather is expected to be " +
+                   condition + " and the high will be " + info.daily[Math.round(diff_in_days)].temp.max +
+                   unit + " and the low at " + info.daily[Math.round(diff_in_days)].temp.min + ".\n";
+          }
         }
       }
       synthesize_speech(synthesizer, text);
@@ -288,8 +308,6 @@
    * @returns {Boolean}
    */
   function is_current_location(entities, len) {
-    if (len === 0) return true;
-
     for (let i = 0; i < len; i++) {
       if (entities[i].type === "builtin.geographyV2.city") return false;
     }
