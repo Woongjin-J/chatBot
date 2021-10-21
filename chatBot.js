@@ -3,6 +3,7 @@
 
   let SpeechSDK;
   let recognizer;
+  let record;
   const speechKey = "f470e25b6841498883626459deb9a1ba";
   const subscriptionKey = "e7531fd877724d46b2395cb8cf7adfe6";
   const serviceRegion = "westus";
@@ -16,11 +17,11 @@
    * Initialize the page.
    */
   function init() {
+    record = false;
     id("talkButton").addEventListener("click", startTalk);
 
     if (!!window.SpeechSDK) {
       SpeechSDK = window.SpeechSDK;
-      id("talkButton").disabled = false;
       id('content').style.display = 'block';
       id('warning').style.display = 'none';
     }
@@ -30,68 +31,67 @@
    * Clear the text content in the page and starts recording from the microphone.
    */
   function startTalk() {
-    id("talkButton").disabled = true;
-    id("phraseDiv").innerHTML = "";
-    id("statusDiv").innerHTML = "";
-    id("respondDiv").innerHTML = "";
+    record = !record;
+    if (record) {
+      id("phraseDiv").innerHTML = "";
+      id("statusDiv").innerHTML = "";
+      id("respondDiv").innerHTML = "";
 
-    const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(subscriptionKey, serviceRegion);
-    const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
+      const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(subscriptionKey, serviceRegion);
+      const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
 
-    speechConfig.speechRecognitionLanguage = "en-US";
-    recognizer = new SpeechSDK.IntentRecognizer(speechConfig, audioConfig);
+      speechConfig.speechRecognitionLanguage = "en-US";
+      recognizer = new SpeechSDK.IntentRecognizer(speechConfig, audioConfig);
 
-    // Set up a Language Understanding Model from Language Understanding Intelligent Service (LUIS).
-    // See https://www.luis.ai/home for more information on LUIS.
-    if (appId !== "" && appId !== "YOUR_LANGUAGE_UNDERSTANDING_APP_ID") {
+      // Set up a Language Understanding Model from Language Understanding Intelligent Service (LUIS).
+      // See https://www.luis.ai/home for more information on LUIS.
       let lm = SpeechSDK.LanguageUnderstandingModel.fromAppId(appId);
       recognizer.addAllIntents(lm);
-    }
-    recognizer.recognizeOnceAsync(recognize, error);
-  }
+      recognizer.startContinuousRecognitionAsync();
 
-  /**
-   * Prints out the speech recorded and the result of intent recognition.
-   * If no intent matched, prints out the speech text only.
-   * @param {Object} result Speech intent recognition result
-   */
-  function recognize(result) {
-    let jsonResult;
-    // window.console.log(result);
-    id("phraseDiv").innerHTML = result.text + "\r\n";
-    id("statusDiv").innerHTML += "(continuation) Reason: " + SpeechSDK.ResultReason[result.reason] + "\r\n";
-    switch (result.reason) {
+      recognizer.recognizing = (s, e) => {
+        id("phraseDiv").innerHTML = e.result.text;
+      }
 
-      case SpeechSDK.ResultReason.RecognizedSpeech:
-        id("statusDiv").innerHTML += " Text: " + result.text;
-        break;
-
-      case SpeechSDK.ResultReason.RecognizedIntent:
-        id("statusDiv").innerHTML += " Text: " + result.text + " IntentId: " + result.intentId + "\r\n";
-
-        // The actual JSON returned from Language Understanding is a bit more complex to get to, but it is available for things like
-        // the entity name and type if part of the intent.
-        jsonResult = result.properties.getProperty(SpeechSDK.PropertyId.LanguageUnderstandingServiceResponse_JsonResult);
-        id("statusDiv").innerHTML += " Intent JSON: " + jsonResult + "\r\n";
-        giveResponse(jsonResult);
-        break;
-
-      case SpeechSDK.ResultReason.NoMatch:
-        let noMatchDetail = SpeechSDK.NoMatchDetails.fromResult(result);
-        id("statusDiv").innerHTML += " NoMatchReason: " + SpeechSDK.NoMatchReason[noMatchDetail.reason];
-        break;
-
-      case SpeechSDK.ResultReason.Canceled:
-        let cancelDetails = SpeechSDK.CancellationDetails.fromResult(result);
-        id("statusDiv").innerHTML += " CancellationReason: " + SpeechSDK.CancellationReason[cancelDetails.reason];
-
-        if (cancelDetails.reason === SpeechSDK.CancellationReason.Error) {
-          id("statusDiv").innerHTML += ": " + cancelDetails.errorDetails;
+      let talk = false;
+      recognizer.recognized = (s, e) => {
+        if (e.result.reason == SpeechSDK.ResultReason.RecognizedIntent) {
+          if (e.result.intentId === "Command.StartTalking") {
+            id("statusDiv").innerHTML += " Text: " + e.result.text + " IntentId: " + e.result.intentId + "\r\n";
+            id("respondDiv").innerHTML = "I'm listening...\r\n";
+            talk = true;
+          } else if (talk) {
+            const jsonResult = e.result.properties.getProperty(SpeechSDK.PropertyId.LanguageUnderstandingServiceResponse_JsonResult);
+            id("statusDiv").innerHTML += " Text: " + e.result.text + " IntentId: " + e.result.intentId + "\r\n";
+            // id("statusDiv").innerHTML += " Intent JSON: " + jsonResult + "\r\n";
+            giveResponse(jsonResult);
+            talk = false;
+          }
         }
-        break;
+        // else if (e.result.reason == SpeechSDK.ResultReason.NoMatch) {
+        //   console.log("NOMATCH: Speech could not be recognized.");
+        // }
+      };
+
+      recognizer.canceled = (s, e) => {
+        console.log(`CANCELED: Reason=${e.reason}`);
+
+        if (e.reason == SpeechSDK.CancellationReason.Error) {
+            console.log(`"CANCELED: ErrorCode=${e.errorCode}`);
+            console.log(`"CANCELED: ErrorDetails=${e.errorDetails}`);
+            console.log("CANCELED: Did you update the key and location/region info?");
+        }
+
+        recognizer.stopContinuousRecognitionAsync();
+      };
+
+      recognizer.sessionStopped = (s, e) => {
+        console.log("\n    Session stopped event.");
+        recognizer.stopContinuousRecognitionAsync();
+      };
+    } else {
+      recognizer.stopContinuousRecognitionAsync();
     }
-    id("statusDiv").innerHTML += "\r\n";
-    id("talkButton").disabled = false;
   }
 
   /**
@@ -131,7 +131,6 @@
       }
     }
 
-    ////////////// work on this; probably need to loop through? /////////
     // Update the givenDate if it's not the current date
     if (len > 0) {
       if (entities[len-1].type === "builtin.datetimeV2.date" ||
@@ -245,7 +244,7 @@
             text = info.alerts[0].description;
           } else {
             text = "I don't have any weather advisory for you right now. The weather is currently " +
-                   condition + " with the temperature " + info.current.temp + unit + ".\n";
+                   condition + " with the temperature at " + info.current.temp + unit + ".\n";
           }
         }
         else if (givenDate > today) { // future
