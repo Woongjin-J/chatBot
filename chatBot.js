@@ -8,8 +8,9 @@
   const subscriptionKey = "e7531fd877724d46b2395cb8cf7adfe6";
   const serviceRegion = "westus";
   const appId = "90172fe8-d914-4019-ae6a-e148ac29d755";
-  const ONECALL_URL = "https://api.openweathermap.org/data/2.5/onecall{forcast}?lat={lat}&lon={lon}&dt={time}&units={measurement}&appid=acf380c77f1250015c7e020d4957ee34";
-  // const ONECALL_URL = 'https://api.weatherbit.io/v2.0/{state}?lat={lat}&lon={lon}&{measurement}key=b9f4ea5764ea441c9c2ecf549bfc8726';
+  // const ONECALL_URL = "https://api.openweathermap.org/data/2.5/onecall{forcast}?lat={lat}&lon={lon}&dt={time}&units={measurement}&appid=acf380c77f1250015c7e020d4957ee34";
+  const ONECALL_URL = 'https://api.weatherbit.io/v2.0/{state}?lat={lat}&lon={lon}&{measurement}key=b9f4ea5764ea441c9c2ecf549bfc8726';
+
   const COORD_URL = "https://api.openweathermap.org/data/2.5/weather?q={city}&units={measurement}&APPID=acf380c77f1250015c7e020d4957ee34";
 
   document.addEventListener("DOMContentLoaded", init);
@@ -115,18 +116,18 @@
     let len = entities.length;
     let time;
 
-    let measurement = "metric";
+    let measurement = "";
     let unit = "°C";
     for (let i = 0; i < len; i++) {
       if (entities[i].type === "builtin.temperature") {
         if (entities[i].entity === "celsius") {
-          measurement = "metric";
+          measurement = "";
           unit = "°C";
         } else if (entities[i].entity === "fahrenheit") {
-          measurement = "imperial";
+          measurement = "I&";
           unit = "°F";
         } else {
-          measurement = "standard"; // Kelvin
+          measurement = "S&"; // Kelvin
           unit = "°K";
         }
         break;
@@ -159,20 +160,29 @@
           url = url.replace('{measurement}', measurement);
 
           if (givenDate < today) { // past
-            if (diff_in_days > 5) {
-              text = "Sorry, I can only look back the weather up to 5 days ago.";
-              synthesize_speech(synthesizer, text);
-              return;
-            }
-            url = url.replace('{forcast}', '/timemachine');
+            // if (diff_in_days > 5) {
+            //   text = "Sorry, I can only look back the weather up to 5 days ago.";
+            //   synthesize_speech(synthesizer, text);
+            //   return;
+            // }
+            // url = url.replace('{forcast}', '/timemachine');
+
+            text = "Sorry, I cannot get history weather information.";
+            synthesize_speech(synthesizer, text);
           }
           else { // present & future
-            if (diff_in_days > 7) {
-              text = "Sorry, I can only foresee the weather up to 7 days after.";
+            if (diff_in_days > 15) {
+              text = "Sorry, I can only foresee the weather up to 15 days after.";
               synthesize_speech(synthesizer, text);
               return;
             }
-            url = url.replace('{forcast}', '');
+            else if (diff_in_days === 0) {
+              url = url.replace('{state}', 'current');
+            }
+            else {
+              url = url.replace('{state}', 'forecast/daily')
+            }
+
           }
           fetch(url)
             .then(checkStatus)
@@ -182,8 +192,8 @@
       }, error);
     }
     else { // specified location
-      if (diff_in_days > 7) {
-        text = "Sorry, I can only foresee the weather up to 7 days after.";
+      if (diff_in_days > 15) {
+        text = "Sorry, I can only foresee the weather up to 15 days after.";
         synthesize_speech(synthesizer, text);
         return;
       }
@@ -197,7 +207,11 @@
           url = url.replace('{lon}', info.coord.lon);
           url = url.replace('{time}', parseInt(givenDate.getTime()/1000));
           url = url.replace('{measurement}', measurement);
-          url = url.replace('{forcast}', '');
+          if (diff_in_days === 0) {
+            url = url.replace('{state}', 'current');
+          } else {
+            url = url.replace('{state}', 'forecast/daily');
+          }
           return fetch(url);
         })
         .then(checkStatus)
@@ -211,35 +225,48 @@
      * @param {JSON} info information about the weather
      */
     function weather(info) {
-      console.log(info);
-
-      let condition = update_condition(info.current.weather[0].main);
+      console.log(info.data);
+      let code = info.data[0].weather.code;
+      let condition = update_condition(code, info.data[0].weather.description);
       if (intent === "Weather.CheckWeatherValue") {
         if (givenDate.getDate() === today.getDate()) { // present
-          text = "It's currently " + condition + " and the temperature is " + info.current.temp + unit + ".\n";
+          if ((code >= 200 && code < 300) || code === 900) {
+            text = "Currently, there's ";
+          } else {
+            text = "It's currently ";
+          }
+          text += condition + ", and the temperature is " + info.data[0].temp + unit + ".\n";
         }
-        else if (givenDate < today) { // past
-          text = "It was " + condition + " and the temperature was " + info.current.temp + unit + ".\n";
-        }
+        ///// No past for now /////
+        // else if (givenDate < today) { // past
+        //   text = "It was " + condition + " and the temperature was " + info.current.temp + unit + ".\n";
+        // }
         else { // future
-          condition = update_condition(info.daily[Math.round(diff_in_days)].weather[0].main);
-          text = "It's expected to be " + condition + " and the high will be " +
-                  info.daily[Math.round(diff_in_days)].temp.max + unit + " and the low at " +
-                  info.daily[Math.round(diff_in_days)].temp.min + ".\n";
+          let code = info.data[Math.round(diff_in_days)].weather.code;
+          condition = update_condition(code, info.data[Math.round(diff_in_days)].weather.description);
+          if ((code >= 200 && code < 300) || code === 900) {
+            text = "It's expected to have ";
+          } else {
+            text = "It's expected to be ";
+          }
+          text += condition + " and the high will be " +
+                  info.data[Math.round(diff_in_days)].max_temp + unit + " and the low at " +
+                  info.data[Math.round(diff_in_days)].min_temp + ".\n";
         }
       }
       else if (intent === "Weather.ChangeTemperatureUnit") {
         if (givenDate.getDate() === today.getDate()) { // present
-          text = "It's currently " + info.current.temp + unit + ".\n";
+          text = "It's currently " + info.data[0].temp + unit + ".\n";
         }
         else if (givenDate < today) { // past
-          text = "It was " + info.current.temp + unit + ".\n";
+          text = "It was " + info.data[0].temp + unit + ".\n";
         }
         else { // future
-          text = "The high is expected to be " + info.daily[Math.round(diff_in_days)].temp.max + unit +
-                 " and the low at " + info.daily[Math.round(diff_in_days)].temp.min + ".\n";
+          text = "The high is expected to be " + info.data[Math.round(diff_in_days)].max_temp + unit +
+                 " and the low at " + info.data[Math.round(diff_in_days)].min_temp + ".\n";
         }
       }
+      // currently not supported
       else if (intent === "Weather.GetWeatherAdvisory") {
         if (givenDate.getDate() === today.getDate()) { // present
           if (info.alerts) {
@@ -273,7 +300,7 @@
   function synthesize_speech(synthesizer, text) {
     synthesizer.speakTextAsync(text,
       function(result) {
-        synthesizer.close();
+        // synthesizer.close();
         return result.audioData;
       },
       function(error) {
@@ -289,15 +316,21 @@
    * @param {String} condition The weather condition
    * @returns condition Converted string
    */
-  function update_condition(condition) {
-    if (condition === "Clouds") {
-      condition = "cloudy";
-    } else if (condition === "Rain") {
-      condition = "raining";
-    } else if (condition === "Mist") {
-      condition = "foggy";
-    } else {
+  function update_condition(code, condition) {
+    if ((code >= 200 && code < 300) || code === 900) {
       condition = condition.toLowerCase();
+    } else if (code >= 300 && code < 400) {
+      condition = "drizzling";
+    } else if (code >= 500 && code < 600) {
+      condition = "raining";
+    } else if (code >= 600 && code < 700) {
+      condition = "snowing";
+    } else if (code >= 700 && code < 800) { // mist, smoke, haze, sand/dust, fog...
+      condition = "foggy";
+    } else if (code === 800) {
+      condition = "clear";
+    } else if (code > 800 && code < 900) {
+      condition = "cloudy";
     }
     return condition;
   }
