@@ -9,6 +9,7 @@
   const serviceRegion = "westus";
   const appId = "90172fe8-d914-4019-ae6a-e148ac29d755";
   const ONECALL_URL = "https://api.openweathermap.org/data/2.5/onecall{forcast}?lat={lat}&lon={lon}&dt={time}&units={measurement}&appid=acf380c77f1250015c7e020d4957ee34";
+  // const ONECALL_URL = 'https://api.weatherbit.io/v2.0/{state}?lat={lat}&lon={lon}&{measurement}key=b9f4ea5764ea441c9c2ecf549bfc8726';
   const COORD_URL = "https://api.openweathermap.org/data/2.5/weather?q={city}&units={measurement}&APPID=acf380c77f1250015c7e020d4957ee34";
 
   document.addEventListener("DOMContentLoaded", init);
@@ -33,12 +34,15 @@
   function startTalk() {
     record = !record;
     if (record) {
+      let listening = false;
       id("phraseDiv").innerHTML = "";
       id("statusDiv").innerHTML = "";
       id("respondDiv").innerHTML = "";
 
       const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(subscriptionKey, serviceRegion);
       const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
+      const responseConfig = SpeechSDK.SpeechConfig.fromSubscription(speechKey, serviceRegion);
+      const synthesizer = new SpeechSDK.SpeechSynthesizer(responseConfig);
 
       speechConfig.speechRecognitionLanguage = "en-US";
       recognizer = new SpeechSDK.IntentRecognizer(speechConfig, audioConfig);
@@ -53,24 +57,24 @@
         id("phraseDiv").innerHTML = e.result.text;
       }
 
-      let talk = false;
       recognizer.recognized = (s, e) => {
         if (e.result.reason == SpeechSDK.ResultReason.RecognizedIntent) {
           if (e.result.intentId === "Command.StartTalking") {
-            id("statusDiv").innerHTML += " Text: " + e.result.text + " IntentId: " + e.result.intentId + "\r\n";
+            id("statusDiv").innerHTML = " Text: " + e.result.text + " IntentId: " + e.result.intentId + "\r\n";
             id("respondDiv").innerHTML = "I'm listening...\r\n";
-            talk = true;
-          } else if (talk) {
+            listening = true;
+          }
+          else if (listening) {
             const jsonResult = e.result.properties.getProperty(SpeechSDK.PropertyId.LanguageUnderstandingServiceResponse_JsonResult);
             id("statusDiv").innerHTML += " Text: " + e.result.text + " IntentId: " + e.result.intentId + "\r\n";
             // id("statusDiv").innerHTML += " Intent JSON: " + jsonResult + "\r\n";
-            giveResponse(jsonResult);
-            talk = false;
+            giveResponse(jsonResult, synthesizer);
+            listening = false;
           }
         }
-        // else if (e.result.reason == SpeechSDK.ResultReason.NoMatch) {
-        //   console.log("NOMATCH: Speech could not be recognized.");
-        // }
+        else if (e.result.reason == SpeechSDK.ResultReason.NoMatch) {
+          console.log("NOMATCH: Speech could not be recognized.");
+        }
       };
 
       recognizer.canceled = (s, e) => {
@@ -98,11 +102,9 @@
    * Determines the request and return the requested information (i.e. current weather).
    * @param {JSON} result Speech intent recognition result
    */
-  function giveResponse(result) {
+  function giveResponse(result, synthesizer) {
     result = JSON.parse(result); // Convert to JS readable JSON
 
-    const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(speechKey, serviceRegion);
-    const synthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig);
     let intent = result.topScoringIntent.intent;
     let entities = result.entities;
     let text = "Sorry, I don't understand.";
