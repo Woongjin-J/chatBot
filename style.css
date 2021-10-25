@@ -1,0 +1,83 @@
+body {
+  font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif;
+  font-size: 13px;
+}
+
+#content {
+  display: none;
+  height: 100%;
+  width: 100%;
+}
+
+#content-2 {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height:90vh;
+  font-size: 18px;
+}
+
+#respondBox {
+  border-style: solid;
+  border-width: thin;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  border-radius: 5px;
+}
+
+#respondDiv {
+  width: fit-content;
+  margin: 5px 0 0 5px;
+  border: thin solid rgb(154, 224, 201);
+  border-radius: 5px;
+  background-color: rgb(154, 224, 201);
+}
+
+#respondDiv p, #requestDiv p {
+  margin: 5px;
+}
+
+#requestDiv {
+  width: fit-content;
+  margin: 5px 5px 0 auto;
+  border: thin solid rgb(110, 179, 243);
+  border-radius: 5px;
+  background-color: rgb(110, 179, 243);
+}
+
+#phraseDiv {
+  display: inline-block;
+  width: 85%;
+  height: 10vh;
+  border-width: thin;
+  border-radius: 5px;
+}
+
+#talkButton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 15vh;
+  border-width: thin;
+  border-radius: 5px;
+}
+
+#btn-txt {
+  margin: 0.5em;
+}
+
+#language {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+#language button {
+  height: 45%;
+}
+
+.hidden {
+  display: none;
+}
