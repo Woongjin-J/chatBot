@@ -1,6 +1,6 @@
 body {
   font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 #content {
@@ -28,7 +28,7 @@ body {
 
 #respondDiv {
   width: fit-content;
-  margin: 5px 0 0 5px;
+  margin: 5px 0 10px 5px;
   border: thin solid rgb(154, 224, 201);
   border-radius: 5px;
   background-color: rgb(154, 224, 201);
@@ -40,7 +40,7 @@ body {
 
 #requestDiv {
   width: fit-content;
-  margin: 5px 5px 0 auto;
+  margin: 5px 5px 10px auto;
   border: thin solid rgb(110, 179, 243);
   border-radius: 5px;
   background-color: rgb(110, 179, 243);
@@ -52,6 +52,7 @@ body {
   height: 10vh;
   border-width: thin;
   border-radius: 5px;
+  font-size: 16px;
 }
 
 #talkButton {
