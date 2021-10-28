@@ -27,28 +27,32 @@
     record = false;
     lang = "en-US";
     id("talkButton").addEventListener("click", startTalk);
-    id("ch").addEventListener("click", function() {
-      lang = "zh-CN";
-      appId = "79f53564-0a5f-4b4a-b54c-0007ff54dbcf";
-      qs("span").innerHTML = "(中文-简体)";
-      id("btn-txt").innerHTML = "开始";
-      document.documentElement.setAttribute("lang", "zh");
-      id("phraseDiv").setAttribute("placeholder", " 点击开始并说 ‘嗨，电脑’ 或 ‘电脑’...");
-    });
-    id("en").addEventListener("click", function() {
-      lang = "en-US";
-      appId = "90172fe8-d914-4019-ae6a-e148ac29d755";
-      qs("span").innerHTML = "(English)";
-      id("btn-txt").innerHTML = "Start";
-      document.documentElement.setAttribute("lang", "en");
-      id("phraseDiv").setAttribute("placeholder", " Click Start and say 'Hey, Computer' or 'Computer'...");
-    });
+    id("ch").addEventListener("click", change_to_chinese);
+    id("en").addEventListener("click", change_to_english);
 
     if (!!window.SpeechSDK) {
       SpeechSDK = window.SpeechSDK;
       id('content').style.display = 'block';
       id('warning').style.display = 'none';
     }
+  }
+
+  function change_to_chinese() {
+    lang = "zh-CN";
+    appId = "79f53564-0a5f-4b4a-b54c-0007ff54dbcf";
+    qs("span").innerHTML = "(中文-简体)";
+    id("btn-txt").innerHTML = "开始";
+    document.documentElement.setAttribute("lang", "zh");
+    id("phraseDiv").setAttribute("placeholder", " 点击开始并说 ‘嗨，电脑’ 或 ‘电脑’...");
+  }
+
+  function change_to_english() {
+    lang = "en-US";
+    appId = "90172fe8-d914-4019-ae6a-e148ac29d755";
+    qs("span").innerHTML = "(English)";
+    id("btn-txt").innerHTML = "Start";
+    document.documentElement.setAttribute("lang", "en");
+    id("phraseDiv").setAttribute("placeholder", " Click Start and say 'Hey, Computer' or 'Computer'...");
   }
 
   /**
@@ -59,8 +63,6 @@
     if (record) {
       id("ch").disabled = true;
       id("en").disabled = true;
-
-      let listening = false;
       id("phraseDiv").innerHTML = "";
       id("mic").classList.add("hidden");
       id("record").classList.remove("hidden");
@@ -70,12 +72,12 @@
       const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
       const responseConfig = SpeechSDK.SpeechConfig.fromSubscription(speechKey, serviceRegion);
 
+      speechConfig.speechRecognitionLanguage = lang;
       responseConfig.speechSynthesisLanguage = lang;
       responseConfig.enableDictation();
-      synthesizer = new SpeechSDK.SpeechSynthesizer(responseConfig);
 
-      speechConfig.speechRecognitionLanguage = lang;
       recognizer = new SpeechSDK.IntentRecognizer(speechConfig, audioConfig);
+      synthesizer = new SpeechSDK.SpeechSynthesizer(responseConfig);
 
       // Set up a Language Understanding Model from Language Understanding Intelligent Service (LUIS).
       // See https://www.luis.ai/home for more information on LUIS.
@@ -83,141 +85,113 @@
       recognizer.addAllIntents(lm);
       recognizer.startContinuousRecognitionAsync();
 
-      recognizer.recognizing = (s, e) => {
-        id("phraseDiv").innerHTML = e.result.text;
-      }
-
-      recognizer.recognized = (s, e) => {
-        if (e.result.reason == SpeechSDK.ResultReason.RecognizedIntent) {
-          if (e.result.intentId === "Command.StartTalking") { // Manually added intent for 'hey computer' and 'computer'
-            if (lang === "en-US") {
-              if (Math.floor(Math.random() * 2) === 1) {
-                synthesize_speech(synthesizer, "I'm listening...");
-              } else {
-                synthesize_speech(synthesizer, "Uh-huh?");
-              }
-            } else {
-              synthesize_speech(synthesizer, "在");
-            }
-            listening = true;
-          }
-          else if (e.result.intentId !== "Computer.Respond" && listening) {
-            let div = document.createElement("div");
-            let p = document.createElement("p");
-            div.setAttribute("id", "requestDiv");
-            p.innerHTML = e.result.text;
-            div.appendChild(p);
-            id("respondBox").appendChild(div);
-            id("respondBox").scrollTo(0, id("respondBox").scrollHeight);
-
-            const jsonResult = e.result.properties.getProperty(SpeechSDK.PropertyId.LanguageUnderstandingServiceResponse_JsonResult);
-            giveResponse(jsonResult, synthesizer);
-            listening = false;
-          }
-
-        }
-        else if (e.result.reason == SpeechSDK.ResultReason.NoMatch) {
-          console.log("NOMATCH: Speech could not be recognized.");
-        }
-      };
-
-      recognizer.canceled = (s, e) => {
-        console.log(`CANCELED: Reason=${e.reason}`);
-
-        if (e.reason == SpeechSDK.CancellationReason.Error) {
-            console.log(`"CANCELED: ErrorCode=${e.errorCode}`);
-            console.log(`"CANCELED: ErrorDetails=${e.errorDetails}`);
-            console.log("CANCELED: Did you update the key and location/region info?");
-        }
-
-        recognizer.stopContinuousRecognitionAsync();
-      };
-
-      recognizer.sessionStopped = (s, e) => {
-        console.log("\n    Session stopped event.");
-        recognizer.stopContinuousRecognitionAsync();
-      };
+      recognize_speech(recognizer);
     } else {
-      id("ch").disabled = false;
-      id("en").disabled = false;
-      id("mic").classList.remove("hidden");
-      id("record").classList.add("hidden");
-      id("btn-txt").classList.remove("hidden");
-      recognizer.stopContinuousRecognitionAsync();
+      stop_recognition(recognizer);
     }
+  }
+
+  function recognize_speech(recognizer) {
+    let listening = false;
+    recognizer.recognizing = (s, e) => {
+      id("phraseDiv").innerHTML = e.result.text;
+    }
+
+    recognizer.recognized = (s, e) => {
+      if (e.result.reason == SpeechSDK.ResultReason.RecognizedIntent) {
+        if (e.result.intentId === "Command.StartTalking") { // Manually added intent for 'hey computer' and 'computer'
+          if (lang === "en-US") {
+            if (Math.floor(Math.random() * 2) === 1) {
+              synthesize_speech("I'm listening...");
+            } else {
+              synthesize_speech("Uh-huh?");
+            }
+          } else {
+            synthesize_speech("在");
+          }
+          listening = true;
+        }
+        else if (e.result.intentId !== "Computer.Respond" && listening) {
+          let div = document.createElement("div");
+          let p = document.createElement("p");
+          div.setAttribute("id", "requestDiv");
+          p.innerHTML = e.result.text;
+          div.appendChild(p);
+          id("respondBox").appendChild(div);
+          id("respondBox").scrollTo(0, id("respondBox").scrollHeight);
+
+          const jsonResult = e.result.properties.getProperty(SpeechSDK.PropertyId.LanguageUnderstandingServiceResponse_JsonResult);
+          giveResponse(JSON.parse(jsonResult));
+          listening = false;
+        }
+      }
+      else if (e.result.reason == SpeechSDK.ResultReason.NoMatch) {
+        console.log("NOMATCH: Speech could not be recognized.");
+      }
+    };
+
+    recognizer.canceled = (s, e) => {
+      console.log(`CANCELED: Reason=${e.reason}`);
+      if (e.reason == SpeechSDK.CancellationReason.Error) {
+          console.log(`"CANCELED: ErrorCode=${e.errorCode}`);
+          console.log(`"CANCELED: ErrorDetails=${e.errorDetails}`);
+          console.log("CANCELED: Did you update the key and location/region info?");
+      }
+      recognizer.stopContinuousRecognitionAsync();
+    };
+
+    recognizer.sessionStopped = (s, e) => {
+      console.log("\n    Session stopped event.");
+      recognizer.stopContinuousRecognitionAsync();
+    };
   }
 
   /**
    * Determines the request and return the requested information (i.e. current weather).
    * @param {JSON} result Speech intent recognition result
    */
-  function giveResponse(result, synthesizer) {
-    result = JSON.parse(result); // Convert to JS readable JSON
-    console.log(result);
-
+  function giveResponse(result) {
+    // console.log(result);
     let url;
     let intent = result.topScoringIntent.intent;
     let entities = result.entities;
-    let text = "Sorry, I don't understand.";
-    if (lang === "zh-CN") text = "对不起，我不明白你的意思。";
-
-    let givenDate = new Date();
-    let today = new Date();
     let len = entities.length;
-    let time;
 
-    let measurement = "metric";
-    let unit = "°C";
-    for (let i = 0; i < len; i++) {
-      if (entities[i].type === "builtin.temperature") {
-        if (entities[i].entity === "celsius" || entities[i].entity === "摄氏") {
-          measurement = "metric";
-          unit = "°C";
-        } else if (entities[i].entity === "fahrenheit" || entities[i].entity === "华氏") {
-          measurement = "imperial";
-          unit = "°F";
-        } else {
-          measurement = "standard"; // Kelvin
-          unit = "°K";
-        }
-        break;
-      }
-    }
+    let unit = update_unit(entities);
 
     // Update the givenDate if it's not the current date
+    let today = new Date();
+    let givenDate = today;
     if (len > 0) {
       if (entities[len-1].type === "builtin.datetimeV2.date" ||
           entities[len-1].type === "builtin.datetimeV2.datetime") {
-        time = entities[len-1].resolution.values[0].value;
-        givenDate = new Date(time);
-        if (givenDate.getDate() === today.getDate()) givenDate = today;
+        givenDate = new Date(entities[len-1].resolution.values[0].value);
+        if (givenDate.getDate() === today.getDate()) {
+          givenDate = today;
+        }
       }
       else if (entities[len-1].type === "builtin.datetimeV2.duration") {
-        time = today.getTime() + entities[len-1].resolution.values[0].value * 1000;
-        givenDate = new Date(time);
+        givenDate = new Date(today.getTime() + entities[len-1].resolution.values[0].value * 1000);
       }
     }
 
     let diff_in_time = Math.abs(today.getTime() - givenDate.getTime());
     let diff_in_days = diff_in_time / (1000 * 3600 * 24);
+    if (!date_in_range(givenDate, today, diff_in_days)) return;
 
     if (is_current_location(entities, len)) { // current location
       navigator.geolocation.getCurrentPosition(function(pos) {
-          time = parseInt(givenDate.getTime() / 1000);
           url = ONECALL_URL.replace('{lat}', pos.coords.latitude);
           url = url.replace('{lon}', pos.coords.longitude);
-          url = url.replace('{time}', time);
-          url = url.replace('{measurement}', measurement);
-
-          if (!checkDate(givenDate, today, diff_in_days, synthesizer)) return;
-
+          url = url.replace('{measurement}', unit[0]);
+          url = url.replace('{time}', parseInt(givenDate.getTime() / 1000));
           if (givenDate < today) { // past
             url = url.replace('{forcast}', '/timemachine');
           }
           else { // present & future
             url = url.replace('{forcast}', '');
           }
-
+          // url = update_url(url, measurement, givenDate, today);
           fetch(url)
             .then(checkStatus)
             .then(JSON.parse)
@@ -226,7 +200,10 @@
       }, error);
     }
     else { // specified location
-      let city = geography(entities, len);
+      let city;
+      for (let i = 0; i < len; i++) {
+        if (entities[i].type === "builtin.geographyV2.city") city = entities[i].entity;
+      }
       url = COORD_URL.replace('{city}', city);
       fetch(url)
         .then(checkStatus)
@@ -234,17 +211,15 @@
         .then(info => {
           url = ONECALL_URL.replace('{lat}', info.coord.lat);
           url = url.replace('{lon}', info.coord.lon);
-          url = url.replace('{time}', parseInt(givenDate.getTime()/1000));
-          url = url.replace('{measurement}', measurement);
-
-          if (!checkDate(givenDate, today, diff_in_days, synthesizer)) return;
-
+          url = url.replace('{measurement}', unit[0]);
+          url = url.replace('{time}', parseInt(givenDate.getTime() / 1000));
           if (givenDate < today) { // past
             url = url.replace('{forcast}', '/timemachine');
           }
           else { // present & future
             url = url.replace('{forcast}', '');
           }
+          // url = update_url(url, measurement, givenDate, today);
           return fetch(url);
         })
         .then(checkStatus)
@@ -258,123 +233,151 @@
      * @param {JSON} info information about the weather
      */
     function weather(info) {
-      console.log(info);
+      // console.log(info);
+      let text = "Sorry, I don't understand.";
+      if (lang === "zh-CN") text = "对不起，我不明白你的意思。";
 
       let condition = update_condition(info.current.weather[0].main);
       if (intent === "Weather.CheckWeatherValue") {
-        if (givenDate.getDate() === today.getDate()) { // present
-          if (lang === "en-US") {
-            text = "It's ";
-            if (condition === "thunderstorm" || (info.current.weather[0].id > 700 && info.current.weather[0].id < 800 && condition !== "foggy")) {
-              text = "There's ";
-            }
-            text += "currently " + condition + " and the temperature is " + info.current.temp + unit + ".\n";
-          } else {
-            text = "现在" + condition + ", 温度是" + info.current.temp + unit + "。\n";
-          }
+        if (givenDate.getDate() === today.getDate()) {
+          text = present_weather(condition, info, unit[1]);
         }
-        else if (givenDate < today) { // past
-          if (lang === "en-US") {
-            text = "It was ";
-            if (condition === "thunderstorm" || (info.current.weather[0].id > 700 && info.current.weather[0].id < 800 && condition !== "foggy")) {
-              text = "There was ";
-            }
-            text += condition + " and the temperature was " + info.current.temp + unit + ".\n";
-          } else {
-            text = entities[len-1].entity + condition + "，温度是" + info.current.temp + unit + "。\n";
-          }
+        else if (givenDate < today) {
+          text = past_weather(condition, info, entities, unit[1]);
         }
-        else { // future
-          condition = update_condition(info.daily[Math.round(diff_in_days)].weather[0].main);
-          if (lang === "en-US") {
-            text = "It's expected to be ";
-            if (condition === "thunderstorm" || (info.current.weather[0].id > 700 && info.current.weather[0].id < 800 && condition !== "foggy")) {
-              text = "It's expected to have ";
-            }
-            text += condition + " and the high will be " +
-                    info.daily[Math.round(diff_in_days)].temp.max + unit + " and the low at " +
-                    info.daily[Math.round(diff_in_days)].temp.min + ".\n";
-          } else {
-            text = entities[len-1].entity + condition + "，最高温是" +
-                    info.daily[Math.round(diff_in_days)].temp.max + unit + "，最低温是" +
-                    info.daily[Math.round(diff_in_days)].temp.min + ".\n";
-          }
+        else {
+          text = future_weather(info, diff_in_days, entities, unit[1]);
         }
       }
       else if (intent === "Weather.ChangeTemperatureUnit") {
-        if (givenDate.getDate() === today.getDate()) { // present
-          if (lang === "en-US") {
-            text = "It's currently " + info.current.temp + unit + ".\n";
-          } else {
-            text = "现在是" + info.current.temp + unit + "。\n";
-          }
+        if (givenDate.getDate() === today.getDate()) {
+          text = present_temperature(info, unit[1]);
         }
-        else if (givenDate < today) { // past
-          if (lang === "en-US") {
-            text = "It was " + info.current.temp + unit + ".\n";
-          } else {
-            text = entities[len-1].entity + "是" + info.current.temp + unit + "。\n";
-          }
+        else if (givenDate < today) {
+          text = past_temperature(info, entities, unit[1]);
         }
-        else { // future
-          if (lang === "en-US") {
-            text = "The high is expected to be " + info.daily[Math.round(diff_in_days)].temp.max + unit +
-                  " and the low at " + info.daily[Math.round(diff_in_days)].temp.min + ".\n";
-          } else {
-            text = entities[len-1].entity + "最高温是" + info.daily[Math.round(diff_in_days)].temp.max + unit +
-                  "最低温是" + info.daily[Math.round(diff_in_days)].temp.min + "。\n";
-          }
+        else {
+          text = future_temperature(info, entities, diff_in_days, unit[1]);
         }
       }
       else if (intent === "Weather.GetWeatherAdvisory") {
-        if (givenDate.getDate() === today.getDate()) { // present
-          if (info.alerts) {
-            text = info.alerts[0].description;
-          } else {
-            text = "I don't have any weather advisory for you right now. The weather is currently " +
-                   condition + " with the temperature at " + info.current.temp + unit + ".\n";
-          }
+        if (givenDate.getDate() === today.getDate()) {
+          text = present_advisory(info, condition, unit[1]);
         }
-        else if (givenDate > today) { // future
-          if (info.alerts) {
-            text = info.alerts[0].description;
-          } else {
-            condition = update_condition(info.daily[Math.round(diff_in_days)].weather[0].main);
-            text = "I don't have any weather advisory for you right now. The weather is expected to be " +
-                   condition + " and the high will be " + info.daily[Math.round(diff_in_days)].temp.max +
-                   unit + " and the low at " + info.daily[Math.round(diff_in_days)].temp.min + ".\n";
-          }
+        else if (givenDate > today) {
+          text = future_advisory(info, diff_in_days, unit[1]);
         }
       }
-      synthesize_speech(synthesizer, text);
+      synthesize_speech(text);
     }
   }
 
-  /**
-   * Converts the returning text message into audio output to play out through the speaker.
-   * Displays the returning text message in the respond block.
-   * @param {SpeechSDK} synthesizer Converts text into audio output
-   * @param {String} text Output text
-   */
-  function synthesize_speech(synthesizer, text) {
-    synthesizer.speakTextAsync(text,
-      function(result) {
-        // synthesizer.close();
-        return result.audioData;
-      },
-      function(error) {
-        console.log(error);
-        synthesizer.close();
-      });
+  function present_weather(condition, info, unit) {
+    let text;
+    if (lang === "en-US") {
+      text = "It's ";
+      if (condition === "thunderstorm" || (info.current.weather[0].id > 700 && info.current.weather[0].id < 800 && condition !== "foggy")) {
+        text = "There's ";
+      }
+      text += "currently " + condition + " and the temperature is " + info.current.temp + unit + ".\n";
+    } else {
+      text = "现在" + condition + ", 温度是" + info.current.temp + unit + "。\n";
+    }
+    return text;
+  }
 
-    // id("respondDiv").innerHTML += text;
-    let div = document.createElement("div");
-    let p = document.createElement("p");
-    div.setAttribute("id", "respondDiv");
-    p.innerHTML = text;
-    div.appendChild(p);
-    id("respondBox").appendChild(div);
-    id("respondBox").scrollTo(0, id("respondBox").scrollHeight);
+  function past_weather(condition, info, entities, unit) {
+    let text;
+    if (lang === "en-US") {
+      text = "It was ";
+      if (condition === "thunderstorm" || (info.current.weather[0].id > 700 && info.current.weather[0].id < 800 && condition !== "foggy")) {
+        text = "There was ";
+      }
+      text += condition + " and the temperature was " + info.current.temp + unit + ".\n";
+    } else {
+      text = entities[entities.length-1].entity + condition + "，温度是" + info.current.temp + unit + "。\n";
+    }
+    return text;
+  }
+
+  function future_weather(info, diff_in_days, entities, unit) {
+    let text;
+    let condition = update_condition(info.daily[Math.round(diff_in_days)].weather[0].main);
+    if (lang === "en-US") {
+      text = "It's expected to be ";
+      if (condition === "thunderstorm" || (info.current.weather[0].id > 700 && info.current.weather[0].id < 800 && condition !== "foggy")) {
+        text = "It's expected to have ";
+      }
+      text += condition + " and the high will be " +
+              info.daily[Math.round(diff_in_days)].temp.max + unit + " and the low at " +
+              info.daily[Math.round(diff_in_days)].temp.min + ".\n";
+    } else {
+      text = entities[entities.length-1].entity + condition + "，最高温是" +
+              info.daily[Math.round(diff_in_days)].temp.max + unit + "，最低温是" +
+              info.daily[Math.round(diff_in_days)].temp.min + ".\n";
+    }
+    return text;
+  }
+
+  function present_temperature(info, unit) {
+    if (lang === "en-US") {
+      return "It's currently " + info.current.temp + unit + ".\n";
+    } else {
+      return "现在是" + info.current.temp + unit + "。\n";
+    }
+  }
+
+  function past_temperature(info, entities, unit) {
+    if (lang === "en-US") {
+      return "It was " + info.current.temp + unit + ".\n";
+    } else {
+      return entities[entities.length-1].entity + "是" + info.current.temp + unit + "。\n";
+    }
+  }
+
+  function future_temperature(info, entities, diff_in_days, unit) {
+    if (lang === "en-US") {
+      return "The high is expected to be " + info.daily[Math.round(diff_in_days)].temp.max + unit +
+            " and the low at " + info.daily[Math.round(diff_in_days)].temp.min + ".\n";
+    } else {
+      return entities[entities.length-1].entity + "最高温是" + info.daily[Math.round(diff_in_days)].temp.max + unit +
+            "最低温是" + info.daily[Math.round(diff_in_days)].temp.min + "。\n";
+    }
+  }
+
+  function present_advisory(info, condition, unit) {
+    if (info.alerts) {
+      return info.alerts[0].description;
+    } else {
+      return "I don't have any weather advisory for you right now. The weather is currently " +
+             condition + " with the temperature at " + info.current.temp + unit + ".\n";
+    }
+  }
+
+  function future_advisory(info, diff_in_days, unit) {
+    if (info.alerts) {
+      return info.alerts[0].description;
+    } else {
+      let condition = update_condition(info.daily[Math.round(diff_in_days)].weather[0].main);
+      return "I don't have any weather advisory for you right now. The weather is expected to be " +
+             condition + " and the high will be " + info.daily[Math.round(diff_in_days)].temp.max +
+             unit + " and the low at " + info.daily[Math.round(diff_in_days)].temp.min + ".\n";
+    }
+  }
+
+  function update_unit(entities) {
+    for (let i = 0; i < entities.length; i++) {
+      if (entities[i].type === "builtin.temperature") {
+        if (entities[i].entity === "celsius" || entities[i].entity === "摄氏") {
+          return ["metric", "°C"];
+        } else if (entities[i].entity === "fahrenheit" || entities[i].entity === "华氏") {
+          return ["imperial", "°F"];
+        } else {
+          return ["standard", "°K"];
+        }
+      }
+    }
+    return ["metric", "°C"];
   }
 
   /**
@@ -445,14 +448,13 @@
   }
 
   /**
-   * Check if the date requested is out of range
+   * Check if the date requested is in the range
    * @param {String} givenDate
    * @param {String} today
    * @param {Int} diff_in_days
-   * @param {Object} synthesizer
    * @returns {Boolean}
    */
-  function checkDate(givenDate, today, diff_in_days, synthesizer) {
+  function date_in_range(givenDate, today, diff_in_days) {
     let text;
     if (givenDate < today) { // past
       if (diff_in_days > 5) {
@@ -461,7 +463,7 @@
         } else {
           text = "对不起，我最多只能查看五天前的天气。"
         }
-        synthesize_speech(synthesizer, text);
+        synthesize_speech(text);
         return false;
       }
     }
@@ -472,7 +474,7 @@
         } else {
           text = "对不起，我只能预测七天内的天气。";
         }
-        synthesize_speech(synthesizer, text);
+        synthesize_speech(text);
         return false;
       }
     }
@@ -480,23 +482,42 @@
   }
 
   /**
-   * finds the city name in the speech. If not specified, return empty string.
-   * @param {Array} entities recognized entities
-   * @returns city name (empty string otherwise)
+   * Converts the returning text message into audio output to play out through the speaker.
+   * Displays the returning text message in the respond block.
+   * @param {String} text Output text
    */
-  function geography(entities, len) {
-    for (let i = 0; i < len; i++) {
-      if (entities[i].type === "builtin.geographyV2.city") return entities[i].entity;
-    }
-    return "";
+  function synthesize_speech(text) {
+    synthesizer.speakTextAsync(text,
+      function(result) {
+        return result.audioData;
+      },
+      function(error) {
+        console.log(error);
+        synthesizer.close();
+      });
+
+    let div = document.createElement("div");
+    let p = document.createElement("p");
+    div.setAttribute("id", "respondDiv");
+    p.innerHTML = text;
+    div.appendChild(p);
+    id("respondBox").appendChild(div);
+    id("respondBox").scrollTo(0, id("respondBox").scrollHeight);
+  }
+
+  function stop_recognition(recognizer) {
+    id("ch").disabled = false;
+    id("en").disabled = false;
+    id("mic").classList.remove("hidden");
+    id("record").classList.add("hidden");
+    id("btn-txt").classList.remove("hidden");
+    recognizer.stopContinuousRecognitionAsync();
   }
 
 
 
 
   /* ------------------------------ Helper Functions  ------------------------------ */
-  // Note: You may use these in your code, but do remember that your code should not have
-  // any functions defined that are unused.
 
   /**
    * Returns the element that has the ID attribute with the specified value.
@@ -514,15 +535,6 @@
    */
     function qs(selector) { // less common, but you may find it helpful
     return document.querySelector(selector);
-  }
-
-  /**
-   * Returns all the element that matches the given css selector.
-   * @param  {[type]} selector - CSS query selector.
-   * @return {[type]} All DOM object matching the query.
-   */
-  function qsa(selector) {
-    return document.querySelectorAll(selector);
   }
 
   /**
