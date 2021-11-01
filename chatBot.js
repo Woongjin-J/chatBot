@@ -339,7 +339,8 @@
       }
       text += condition + " and the temperature was " + info.current.temp + unit + ".\n";
     } else {
-      text = entities[entities.length-1].entity + condition + "，温度是" + info.current.temp + unit + "。\n";
+      let duration = entities[entities.length-1].entity.replace(/\s+/g, '');
+      text = duration + condition + "，温度是" + info.current.temp + unit + "。\n";
     }
     return text;
   }
@@ -364,7 +365,8 @@
               info.daily[Math.round(diff_in_days)].temp.max + unit + " and the low at " +
               info.daily[Math.round(diff_in_days)].temp.min + ".\n";
     } else {
-      text = entities[entities.length-1].entity + condition + "，最高温是" +
+      let duration = entities[entities.length-1].entity.replace(/\s+/g, '');
+      text = duration + condition + "，最高温是" +
               info.daily[Math.round(diff_in_days)].temp.max + unit + "，最低温是" +
               info.daily[Math.round(diff_in_days)].temp.min + ".\n";
     }
@@ -396,7 +398,8 @@
     if (lang === "en-US") {
       return "It was " + info.current.temp + unit + ".\n";
     } else {
-      return entities[entities.length-1].entity + "是" + info.current.temp + unit + "。\n";
+      let duration = entities[entities.length-1].entity.replace(/\s+/g, '');
+      return duration + "是" + info.current.temp + unit + "。\n";
     }
   }
 
@@ -413,7 +416,8 @@
       return "The high is expected to be " + info.daily[Math.round(diff_in_days)].temp.max + unit +
                         " and the low at " + info.daily[Math.round(diff_in_days)].temp.min + ".\n";
     } else {
-      return entities[entities.length-1].entity + "最高温是" + info.daily[Math.round(diff_in_days)].temp.max + unit +
+      let duration = entities[entities.length-1].entity.replace(/\s+/g, '');
+      return duration + "最高温是" + info.daily[Math.round(diff_in_days)].temp.max + unit +
             "最低温是" + info.daily[Math.round(diff_in_days)].temp.min + "。\n";
     }
   }
