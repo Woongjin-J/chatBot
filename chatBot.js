@@ -30,7 +30,7 @@
   function init() {
     record = false;
     lang = "en-US";
-    id("talkButton").addEventListener("click", startTalk);
+    id("talkButton").addEventListener("click", start_talk);
     id("ch").addEventListener("click", change_to_chinese);
     id("en").addEventListener("click", change_to_english);
 
@@ -41,6 +41,9 @@
     }
   }
 
+  /**
+   * Changes the language to Chinese Simplified.
+   */
   function change_to_chinese() {
     lang = "zh-CN";
     appId = "79f53564-0a5f-4b4a-b54c-0007ff54dbcf";
@@ -50,6 +53,9 @@
     id("phraseDiv").setAttribute("placeholder", " 点击开始并说 ‘嗨，电脑’ 或 ‘电脑’...");
   }
 
+  /**
+   * Changes the language to English (US).
+   */
   function change_to_english() {
     lang = "en-US";
     appId = "90172fe8-d914-4019-ae6a-e148ac29d755";
@@ -62,7 +68,7 @@
   /**
    * Clear the text content in the page and starts recording from the microphone.
    */
-  function startTalk() {
+  function start_talk() {
     record = !record;
     if (record) {
       id("ch").disabled = true;
@@ -94,6 +100,12 @@
     }
   }
 
+  /**
+   * Continuously recognizing the speech recorded from the default microphone.
+   * Also respond to the speech recorded.
+   * @param {SpeachSDK} recognizer
+   * @param {SpeachSDK} responseConfig
+   */
   function recognize_speech(recognizer, responseConfig) {
     let listening = false;
     recognizer.startContinuousRecognitionAsync();
@@ -159,7 +171,6 @@
    * @param {JSON} result Speech intent recognition result
    */
   async function giveResponse(result) {
-    console.log(result);
     let url;
     let intent = result.topScoringIntent.intent;
     let entities = result.entities;
@@ -193,13 +204,13 @@
           url = url.replace('{lon}', pos.coords.longitude);
           url = url.replace('{measurement}', unit[0]);
           url = url.replace('{time}', parseInt(givenDate.getTime() / 1000));
+
           if (givenDate < today) { // past
             url = url.replace('{forcast}', '/timemachine');
           }
           else { // present & future
             url = url.replace('{forcast}', '');
           }
-          // url = update_url(url, measurement, givenDate, today);
           fetch(url)
             .then(checkStatus)
             .then(JSON.parse)
@@ -244,11 +255,12 @@
      * @param {JSON} info information about the weather
      */
     async function weather(info) {
-      console.log(info);
       let text = "Sorry, I don't understand.";
       if (lang === "zh-CN") text = "对不起，我不明白你的意思。";
 
       let condition = update_condition(info.current.weather[0].main);
+
+      // Weather value details
       if (intent === "Weather.CheckWeatherValue") {
         if (givenDate.getDate() === today.getDate()) {
           text = present_weather(condition, info, unit[1]);
@@ -261,6 +273,7 @@
         }
         synthesize_speech(text);
       }
+      // Temperature only
       else if (intent === "Weather.ChangeTemperatureUnit") {
         if (givenDate.getDate() === today.getDate()) {
           text = present_temperature(info, unit[1]);
@@ -273,6 +286,7 @@
         }
         synthesize_speech(text);
       }
+      // Weather Advisory/Alert
       else if (intent === "Weather.GetWeatherAdvisory") {
         if (givenDate.getDate() === today.getDate()) {
           text = await present_advisory(info, condition, unit[1]);
@@ -287,6 +301,13 @@
     }
   }
 
+  /**
+   * Returns present weather condition message.
+   * @param {String} condition
+   * @param {JSON} info
+   * @param {String} unit
+   * @returns {String}
+   */
   function present_weather(condition, info, unit) {
     let text;
     if (lang === "en-US") {
@@ -301,6 +322,14 @@
     return text;
   }
 
+  /**
+   * Returns past weather condition message.
+   * @param {String} condition
+   * @param {JSON} info
+   * @param {Array} entities
+   * @param {String} unit
+   * @returns {String}
+   */
   function past_weather(condition, info, entities, unit) {
     let text;
     if (lang === "en-US") {
@@ -315,6 +344,14 @@
     return text;
   }
 
+  /**
+   * Returns future weather condition message.
+   * @param {JSON} info
+   * @param {int} diff_in_days
+   * @param {Array} entities
+   * @param {String} unit
+   * @returns {String}
+   */
   function future_weather(info, diff_in_days, entities, unit) {
     let text;
     let condition = update_condition(info.daily[Math.round(diff_in_days)].weather[0].main);
@@ -334,6 +371,12 @@
     return text;
   }
 
+  /**
+   * Returns present temperature message.
+   * @param {JSON} info
+   * @param {String} unit
+   * @returns {String}
+   */
   function present_temperature(info, unit) {
     if (lang === "en-US") {
       return "It's currently " + info.current.temp + unit + ".\n";
@@ -342,6 +385,13 @@
     }
   }
 
+  /**
+   * Returns past temperature message.
+   * @param {JSON} info
+   * @param {Array} entities
+   * @param {String} unit
+   * @returns {String}
+   */
   function past_temperature(info, entities, unit) {
     if (lang === "en-US") {
       return "It was " + info.current.temp + unit + ".\n";
@@ -350,6 +400,14 @@
     }
   }
 
+  /**
+   * Returns future temperature message.
+   * @param {JSON} info
+   * @param {int} diff_in_days
+   * @param {Array} entities
+   * @param {String} unit
+   * @returns {String}
+   */
   function future_temperature(info, diff_in_days, entities, unit) {
     if (lang === "en-US") {
       return "The high is expected to be " + info.daily[Math.round(diff_in_days)].temp.max + unit +
@@ -360,6 +418,13 @@
     }
   }
 
+  /**
+   * Returns present weather advisory/alert message.
+   * @param {JSON} info
+   * @param {String} condition
+   * @param {String} unit
+   * @returns {String}
+   */
   async function present_advisory(info, condition, unit) {
     if (info.alerts) {
       let alert = modify_text(info.alerts[0].description, false);
@@ -375,6 +440,14 @@
     }
   }
 
+  /**
+   * Returns future weather advisory message.
+   * @param {JSON} info
+   * @param {int} diff_in_days
+   * @param {Array} entities
+   * @param {String} unit
+   * @returns {String}
+   */
   async function future_advisory(info, diff_in_days, entities, unit) {
     if (info.alerts) {
       if (lang === "en-US") return info.alerts[0].description;
@@ -389,6 +462,11 @@
     }
   }
 
+  /**
+   * Updates the temperature measurement and unit.
+   * @param {Array} entities
+   * @returns {Array}
+   */
   function update_unit(entities) {
     for (let i = 0; i < entities.length; i++) {
       if (entities[i].type === "builtin.temperature") {
@@ -407,7 +485,7 @@
   /**
    * Converts the noun phrase to adjective
    * @param {String} condition The weather condition
-   * @returns condition Converted string
+   * @returns {String}
    */
   function update_condition(condition) {
     if (condition === "Clouds") {
@@ -475,7 +553,7 @@
    * Check if the date requested is in the range
    * @param {String} givenDate
    * @param {String} today
-   * @param {Int} diff_in_days
+   * @param {int} diff_in_days
    * @returns {Boolean}
    */
   function date_in_range(givenDate, today, diff_in_days) {
@@ -524,6 +602,10 @@
       });
   }
 
+  /**
+   * Displays the result message on the screen.
+   * @param {String} text
+   */
   function display_result(text) {
     let div = document.createElement("div");
     let p = document.createElement("p");
@@ -534,6 +616,10 @@
     id("respondBox").scrollTo(0, id("respondBox").scrollHeight);
   }
 
+  /**
+   * Stops the continuous speech recognition.
+   * @param {SpeechSDK} recognizer
+   */
   function stop_recognition(recognizer) {
     id("ch").disabled = false;
     id("en").disabled = false;
@@ -543,6 +629,14 @@
     recognizer.stopContinuousRecognitionAsync();
   }
 
+  /**
+   * Modifies the text for easier readibility.
+   * If `breaks` is false, modify the text for speech synthesys. It will set to
+   * true after speech synthesys for better visual presentation.
+   * @param {String} text
+   * @param {Boolean} breaks
+   * @returns {String}
+   */
   function modify_text(text, breaks) {
     let arr;
     if (!breaks) {
@@ -567,6 +661,12 @@
     return alert;
   }
 
+  /**
+   * Translates the message passed in to the given language
+   * @param {String} message
+   * @param {String} language
+   * @returns {String} translated message
+   */
   async function translate(message, language) {
     try {
       let body = await fetch( `https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=${language}`,
@@ -585,7 +685,6 @@
       })
         .then(r => r.json());
 
-      // console.log("Translation: \n", body[0].translations[0].text);
       return body[0].translations[0].text;
     }
     catch( err ) {
@@ -593,6 +692,10 @@
     }
   }
 
+  /**
+   * Generates Unisersally Unique Identifier
+   * @returns {String}
+   */
   function uuidv4() {
     return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
       (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
