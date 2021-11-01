@@ -15,6 +15,10 @@
   const serviceRegion = "westus";
   let appId = "90172fe8-d914-4019-ae6a-e148ac29d755";
 
+  // Translator key
+  const translatorKey = "36bb6d70543b4fc69134aa9469548009";
+  const translatorRegion = "westus2";
+
   const ONECALL_URL = "https://api.openweathermap.org/data/2.5/onecall{forcast}?lat={lat}&lon={lon}&dt={time}&units={measurement}&appid=acf380c77f1250015c7e020d4957ee34";
   const COORD_URL = "https://api.openweathermap.org/data/2.5/weather?q={city}&units={measurement}&APPID=acf380c77f1250015c7e020d4957ee34";
 
@@ -83,31 +87,35 @@
       // See https://www.luis.ai/home for more information on LUIS.
       let lm = SpeechSDK.LanguageUnderstandingModel.fromAppId(appId);
       recognizer.addAllIntents(lm);
-      recognizer.startContinuousRecognitionAsync();
 
-      recognize_speech(recognizer);
+      recognize_speech(recognizer, responseConfig);
     } else {
       stop_recognition(recognizer);
     }
   }
 
-  function recognize_speech(recognizer) {
+  function recognize_speech(recognizer, responseConfig) {
     let listening = false;
+    recognizer.startContinuousRecognitionAsync();
     recognizer.recognizing = (s, e) => {
       id("phraseDiv").innerHTML = e.result.text;
     }
 
     recognizer.recognized = (s, e) => {
+      synthesizer = new SpeechSDK.SpeechSynthesizer(responseConfig);
       if (e.result.reason == SpeechSDK.ResultReason.RecognizedIntent) {
         if (e.result.intentId === "Command.StartTalking") { // Manually added intent for 'hey computer' and 'computer'
           if (lang === "en-US") {
             if (Math.floor(Math.random() * 2) === 1) {
               synthesize_speech("I'm listening...");
+              display_result("I'm listening...");
             } else {
               synthesize_speech("Uh-huh?");
+              display_result("Uh-huh?");
             }
           } else {
             synthesize_speech("在");
+            display_result("在");
           }
           listening = true;
         }
@@ -150,8 +158,8 @@
    * Determines the request and return the requested information (i.e. current weather).
    * @param {JSON} result Speech intent recognition result
    */
-  function giveResponse(result) {
-    // console.log(result);
+  async function giveResponse(result) {
+    console.log(result);
     let url;
     let intent = result.topScoringIntent.intent;
     let entities = result.entities;
@@ -202,7 +210,10 @@
     else { // specified location
       let city;
       for (let i = 0; i < len; i++) {
-        if (entities[i].type === "builtin.geographyV2.city") city = entities[i].entity;
+        if (entities[i].type === "builtin.geographyV2.city" || entities[i].type === "Weather.Location") city = entities[i].entity;
+      }
+      if (lang === "zh-CN") {
+        city = await translate(city, 'en');
       }
       url = COORD_URL.replace('{city}', city);
       fetch(url)
@@ -232,8 +243,8 @@
      * Prints out the weather condition and output the speech through speaker.
      * @param {JSON} info information about the weather
      */
-    function weather(info) {
-      // console.log(info);
+    async function weather(info) {
+      console.log(info);
       let text = "Sorry, I don't understand.";
       if (lang === "zh-CN") text = "对不起，我不明白你的意思。";
 
@@ -248,6 +259,7 @@
         else {
           text = future_weather(info, diff_in_days, entities, unit[1]);
         }
+        synthesize_speech(text);
       }
       else if (intent === "Weather.ChangeTemperatureUnit") {
         if (givenDate.getDate() === today.getDate()) {
@@ -257,18 +269,21 @@
           text = past_temperature(info, entities, unit[1]);
         }
         else {
-          text = future_temperature(info, entities, diff_in_days, unit[1]);
+          text = future_temperature(info, diff_in_days, entities, unit[1]);
         }
+        synthesize_speech(text);
       }
       else if (intent === "Weather.GetWeatherAdvisory") {
         if (givenDate.getDate() === today.getDate()) {
-          text = present_advisory(info, condition, unit[1]);
+          text = await present_advisory(info, condition, unit[1]);
         }
         else if (givenDate > today) {
-          text = future_advisory(info, diff_in_days, unit[1]);
+          text = await future_advisory(info, diff_in_days, entities, unit[1]);
         }
+        synthesize_speech(text);
+        text = modify_text(text, true);
       }
-      synthesize_speech(text);
+      display_result(text);
     }
   }
 
@@ -335,33 +350,42 @@
     }
   }
 
-  function future_temperature(info, entities, diff_in_days, unit) {
+  function future_temperature(info, diff_in_days, entities, unit) {
     if (lang === "en-US") {
       return "The high is expected to be " + info.daily[Math.round(diff_in_days)].temp.max + unit +
-            " and the low at " + info.daily[Math.round(diff_in_days)].temp.min + ".\n";
+                        " and the low at " + info.daily[Math.round(diff_in_days)].temp.min + ".\n";
     } else {
       return entities[entities.length-1].entity + "最高温是" + info.daily[Math.round(diff_in_days)].temp.max + unit +
             "最低温是" + info.daily[Math.round(diff_in_days)].temp.min + "。\n";
     }
   }
 
-  function present_advisory(info, condition, unit) {
+  async function present_advisory(info, condition, unit) {
     if (info.alerts) {
-      return info.alerts[0].description;
+      let alert = modify_text(info.alerts[0].description, false);
+      if (lang === "en-US") return alert;
+      return await translate(alert, 'zh-Hans');
     } else {
-      return "I don't have any weather advisory for you right now. The weather is currently " +
-             condition + " with the temperature at " + info.current.temp + unit + ".\n";
+      if (lang === "en-US") {
+        return "I don't have any weather advisory for you right now. "  +
+                                      present_weather(condition, info, unit);
+      } else {
+        return "我现在没有任何天气预警信息。" + present_weather(condition, info, unit);
+      }
     }
   }
 
-  function future_advisory(info, diff_in_days, unit) {
+  async function future_advisory(info, diff_in_days, entities, unit) {
     if (info.alerts) {
-      return info.alerts[0].description;
+      if (lang === "en-US") return info.alerts[0].description;
+      return await translate(info.alerts[0].description, 'zh-Hans');
     } else {
-      let condition = update_condition(info.daily[Math.round(diff_in_days)].weather[0].main);
-      return "I don't have any weather advisory for you right now. The weather is expected to be " +
-             condition + " and the high will be " + info.daily[Math.round(diff_in_days)].temp.max +
-             unit + " and the low at " + info.daily[Math.round(diff_in_days)].temp.min + ".\n";
+      if (lang === "en-US") {
+        return "I don't have any weather advisory for you right now. " +
+                            future_weather(info, diff_in_days, entities, unit);
+      } else {
+        return "我现在没有任何天气预警信息。" + future_weather(info, diff_in_days, entities, unit);
+      }
     }
   }
 
@@ -442,7 +466,7 @@
    */
   function is_current_location(entities, len) {
     for (let i = 0; i < len; i++) {
-      if (entities[i].type === "builtin.geographyV2.city") return false;
+      if (entities[i].type === "builtin.geographyV2.city" || entities[i].type === "Weather.Location") return false;
     }
     return true;
   }
@@ -464,6 +488,7 @@
           text = "对不起，我最多只能查看五天前的天气。"
         }
         synthesize_speech(text);
+        display_result(text);
         return false;
       }
     }
@@ -475,6 +500,7 @@
           text = "对不起，我只能预测七天内的天气。";
         }
         synthesize_speech(text);
+        display_result(text);
         return false;
       }
     }
@@ -489,13 +515,16 @@
   function synthesize_speech(text) {
     synthesizer.speakTextAsync(text,
       function(result) {
+        synthesizer.close();
         return result.audioData;
       },
       function(error) {
         console.log(error);
         synthesizer.close();
       });
+  }
 
+  function display_result(text) {
     let div = document.createElement("div");
     let p = document.createElement("p");
     div.setAttribute("id", "respondDiv");
@@ -512,6 +541,62 @@
     id("record").classList.add("hidden");
     id("btn-txt").classList.remove("hidden");
     recognizer.stopContinuousRecognitionAsync();
+  }
+
+  function modify_text(text, breaks) {
+    let arr;
+    if (!breaks) {
+      arr = text.split("*");
+      arr[0] = arr[0].substring(3);
+      for (let i = 0; i < 2; i++) {
+        arr[i] = arr[i].replace(arr[i].substring(arr[i].search("\n"), arr[i].search("\n")+1), " ");
+      }
+      for (let i = 0; i < arr.length; i++) {
+        arr[i] = arr[i].replace("...", "\n");
+      }
+      arr[arr.length - 1] = arr[arr.length - 1].replace("\n", " ");
+    } else {
+      arr = text.split("\n");
+    }
+
+    let alert = "";
+    for (let i = 0; i < arr.length - 1; i++) {
+      alert += arr[i];
+      if (breaks) alert += "<br>";
+    }
+    return alert;
+  }
+
+  async function translate(message, language) {
+    try {
+      let body = await fetch( `https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=${language}`,
+      {
+        method: "POST",
+        headers: {
+          'Ocp-Apim-Subscription-Key': translatorKey,
+          'Ocp-Apim-Subscription-Region': translatorRegion,
+          'Content-type': 'application/json',
+          'X-ClientTraceId': uuidv4().toString()
+        },
+        body: JSON.stringify([
+        {
+          'text': message
+        }]),
+      })
+        .then(r => r.json());
+
+      // console.log("Translation: \n", body[0].translations[0].text);
+      return body[0].translations[0].text;
+    }
+    catch( err ) {
+      return console.log( "Error in translation request", err );
+    }
+  }
+
+  function uuidv4() {
+    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    );
   }
 
 
