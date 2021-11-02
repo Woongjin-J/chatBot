@@ -19,6 +19,9 @@
   const translatorKey = "36bb6d70543b4fc69134aa9469548009";
   const translatorRegion = "westus2";
 
+  // API url links
+  // ONECALL_URL: weather informations
+  // COORD_URL: API to retrieve the geological location (latitute & longitude)
   const ONECALL_URL = "https://api.openweathermap.org/data/2.5/onecall{forcast}?lat={lat}&lon={lon}&dt={time}&units={measurement}&appid=acf380c77f1250015c7e020d4957ee34";
   const COORD_URL = "https://api.openweathermap.org/data/2.5/weather?q={city}&units={measurement}&APPID=acf380c77f1250015c7e020d4957ee34";
 
@@ -171,11 +174,26 @@
    * @param {JSON} result Speech intent recognition result
    */
   async function giveResponse(result) {
-    let url;
     let intent = result.topScoringIntent.intent;
     let entities = result.entities;
-    let len = entities.length;
 
+    if (intent === "Weather.CheckWeatherValue" || intent === "Weather.ChangeTemperatureUnit" ||
+                                                          intent === "Weather.GetWeatherAdvisory") {
+      weather_request(intent, entities);
+    }
+    else if (intent === "TurnOn" || intent === "TurnOff" || intent === "TurnAllOn" || intent === "TurnAllOff" ) {
+      home_automation();
+    }
+  }
+
+  /**
+   * Determines the weather request and respond with both text and audio
+   * @param {String} intent
+   * @param {JSON} entities
+   */
+  async function weather_request(intent, entities) {
+    let url;
+    let len = entities.length;
     let unit = update_unit(entities);
 
     // Update the givenDate if it's not the current date
@@ -198,6 +216,14 @@
     let diff_in_days = diff_in_time / (1000 * 3600 * 24);
     if (!date_in_range(givenDate, today, diff_in_days)) return;
 
+    let details = {
+      intent: intent,
+      entities: entities,
+      unit: unit,
+      givenDate: givenDate,
+      today: today
+    };
+
     if (is_current_location(entities, len)) { // current location
       navigator.geolocation.getCurrentPosition(function(pos) {
           url = ONECALL_URL.replace('{lat}', pos.coords.latitude);
@@ -214,6 +240,9 @@
           fetch(url)
             .then(checkStatus)
             .then(JSON.parse)
+            .then(info => {
+              return [info, details];
+            })
             .then(weather)
             .catch();
       }, error);
@@ -241,64 +270,71 @@
           else { // present & future
             url = url.replace('{forcast}', '');
           }
-          // url = update_url(url, measurement, givenDate, today);
           return fetch(url);
         })
         .then(checkStatus)
         .then(JSON.parse)
+        .then(info => {
+          return [info, details];
+        })
         .then(weather)
         .catch();
     }
+  }
 
-    /**
-     * Prints out the weather condition and output the speech through speaker.
-     * @param {JSON} info information about the weather
-     */
-    async function weather(info) {
-      let text = "Sorry, I don't understand.";
-      if (lang === "zh-CN") text = "对不起，我不明白你的意思。";
+  /**
+   * Prints out the weather condition and output the speech through speaker.
+   * @param {Array} infos information about the requested weather
+   */
+  async function weather(infos) {
+    let info = infos[0];
+    let details = infos[1];
+    let diff_in_time = Math.abs(details.today.getTime() - details.givenDate.getTime());
+    let diff_in_days = diff_in_time / (1000 * 3600 * 24);
 
-      let condition = update_condition(info.current.weather[0].main);
+    let text = "Sorry, I don't understand.";
+    if (lang === "zh-CN") text = "对不起，我不明白你的意思。";
 
-      // Weather value details
-      if (intent === "Weather.CheckWeatherValue") {
-        if (givenDate.getDate() === today.getDate()) {
-          text = present_weather(condition, info, unit[1]);
-        }
-        else if (givenDate < today) {
-          text = past_weather(condition, info, entities, unit[1]);
-        }
-        else {
-          text = future_weather(info, diff_in_days, entities, unit[1]);
-        }
-        synthesize_speech(text);
+    let condition = update_condition(info.current.weather[0].main);
+
+    // Weather value details
+    if (details.intent === "Weather.CheckWeatherValue") {
+      if (details.givenDate.getDate() === details.today.getDate()) { // present
+        text = present_weather(condition, info, details.unit[1]);
       }
-      // Temperature only
-      else if (intent === "Weather.ChangeTemperatureUnit") {
-        if (givenDate.getDate() === today.getDate()) {
-          text = present_temperature(info, unit[1]);
-        }
-        else if (givenDate < today) {
-          text = past_temperature(info, entities, unit[1]);
-        }
-        else {
-          text = future_temperature(info, diff_in_days, entities, unit[1]);
-        }
-        synthesize_speech(text);
+      else if (details.givenDate < details.today) { // past
+        text = past_weather(condition, info, details.entities, details.unit[1]);
       }
-      // Weather Advisory/Alert
-      else if (intent === "Weather.GetWeatherAdvisory") {
-        if (givenDate.getDate() === today.getDate()) {
-          text = await present_advisory(info, condition, unit[1]);
-        }
-        else if (givenDate > today) {
-          text = await future_advisory(info, diff_in_days, entities, unit[1]);
-        }
-        synthesize_speech(text);
-        text = modify_text(text, true);
+      else { // future
+        text = future_weather(info, diff_in_days, details.entities, details.unit[1]);
       }
-      display_result(text);
+      synthesize_speech(text);
     }
+    // Temperature only
+    else if (details.intent === "Weather.ChangeTemperatureUnit") {
+      if (details.givenDate.getDate() === details.today.getDate()) { // present
+        text = present_temperature(info, details.unit[1]);
+      }
+      else if (details.givenDate < details.today) { // past
+        text = past_temperature(info, details.entities, details.unit[1]);
+      }
+      else { // future
+        text = future_temperature(info, diff_in_days, details.entities, details.unit[1]);
+      }
+      synthesize_speech(text);
+    }
+    // Weather Advisory/Alert
+    else if (details.intent === "Weather.GetWeatherAdvisory") {
+      if (details.givenDate.getDate() === details.today.getDate()) { // present
+        text = await present_advisory(info, condition, details.unit[1]);
+      }
+      else if (details.givenDate > details.today) { // future
+        text = await future_advisory(info, diff_in_days, details.entities, details.unit[1]);
+      }
+      synthesize_speech(text);
+      text = modify_text(text, true);
+    }
+    display_result(text);
   }
 
   /**

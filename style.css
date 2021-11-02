@@ -1,6 +1,8 @@
 body {
   font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif;
   font-size: 12px;
+  overflow: hidden;
+  height: auto;
 }
 
 #content {
@@ -20,15 +22,15 @@ body {
 #respondBox {
   border-style: solid;
   border-width: thin;
-  width: 100%;
-  height: 100%;
-  overflow: auto;
+  width: 60%;
+  height: 70vh;
+  overflow: scroll;
   border-radius: 5px;
 }
 
 #respondDiv {
   width: fit-content;
-  margin: 5px 0 10px 5px;
+  margin: 5px 20% 10px 5px;
   border: thin solid rgb(154, 224, 201);
   border-radius: 5px;
   background-color: rgb(154, 224, 201);
@@ -40,10 +42,25 @@ body {
 
 #requestDiv {
   width: fit-content;
+  max-width: 80%;
   margin: 5px 5px 10px auto;
   border: thin solid rgb(110, 179, 243);
   border-radius: 5px;
   background-color: rgb(110, 179, 243);
+}
+
+#lights {
+  display: flex;
+  justify-content: space-evenly;
+  width: 40%;
+}
+
+#lamp-desk {
+  width: 60%;
+}
+
+#lamp-floor {
+  width: 35%;
 }
 
 #phraseDiv {
