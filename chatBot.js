@@ -119,19 +119,19 @@
     recognizer.recognized = (s, e) => {
       synthesizer = new SpeechSDK.SpeechSynthesizer(responseConfig);
       if (e.result.reason == SpeechSDK.ResultReason.RecognizedIntent) {
-        if (e.result.intentId === "Command.StartTalking") { // Manually added intent for 'hey computer' and 'computer'
+        if (e.result.intentId === "Command.StartTalking") { // Manually added intent 'Command.StartTalking' on LUIS
+          let text;
           if (lang === "en-US") {
             if (Math.floor(Math.random() * 2) === 1) {
-              synthesize_speech("I'm listening...");
-              display_result("I'm listening...");
+              text = "I'm listening...";
             } else {
-              synthesize_speech("Uh-huh?");
-              display_result("Uh-huh?");
+              text = "Uh-huh?";
             }
           } else {
-            synthesize_speech("在");
-            display_result("在");
+            text = "在";
           }
+          synthesize_speech(text);
+          display_result(text);
           listening = true;
         }
         else if (e.result.intentId !== "Computer.Respond" && listening) {
