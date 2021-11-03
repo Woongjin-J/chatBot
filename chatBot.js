@@ -176,13 +176,13 @@
   async function giveResponse(result) {
     let intent = result.topScoringIntent.intent;
     let entities = result.entities;
-
-    if (intent === "Weather.CheckWeatherValue" || intent === "Weather.ChangeTemperatureUnit" ||
-                                                          intent === "Weather.GetWeatherAdvisory") {
+    if (intent === "Weather.CheckWeatherValue" || intent === "Weather.ChangeTemperatureUnit"
+                                               || intent === "Weather.GetWeatherAdvisory") {
       weather_request(intent, entities);
     }
-    else if (intent === "TurnOn" || intent === "TurnOff" || intent === "TurnAllOn" || intent === "TurnAllOff" ) {
-      home_automation();
+    else if (intent === "HomeAutomation.TurnOn" || intent === "HomeAutomation.TurnOff"
+                                                || intent === "HomeAutomation.SetDevice") {
+      home_automation(intent, entities);
     }
   }
 
@@ -623,6 +623,120 @@
       }
     }
     return true;
+  }
+
+  function home_automation(intent, entities) {
+    console.log("intent\n", intent);
+    console.log("entities\n", entities);
+
+    let device;
+    let location;
+    let all = true;
+    for (let i = 0; i < entities.length; i++) {
+      if (entities[i].type === "HomeAutomation.Location") {
+        all = false;
+        location = entities[i].entity;
+      }
+      if (entities[i].type === "HomeAutomation.DeviceType") device = entities[i].entity;
+      if (entities[i].type === "HomeAutomation.Quantifier") all = true;
+    }
+
+    let text;
+    if (intent === "HomeAutomation.TurnOn") {
+      if (all) {
+        id("lamp-desk").src = "img/desk_white.jpg";
+        id("lamp-floor").src = "img/floor_white.jpg";
+        if (lang === "en-US") {
+          text = "Turning lights on.";
+        } else {
+          text = "开灯。";
+        }
+      }
+      else {
+        if (location === "desk") {
+          if (device === "lamp" || device === "lamps" ||
+              device === "light" || device === "lights") {
+            id("lamp-desk").src = "img/desk_white.jpg";
+          }
+        }
+        else if (location === "floor") {
+          if (device === "lamp" || device === "lamps" ||
+              device === "light" || device === "lights") {
+            id("lamp-floor").src = "img/floor_white.jpg";
+          }
+        }
+
+        if (lang === "en-US") {
+          text = "Turning " + location + " " + device + " on.";
+        } else {
+          text = "打开台灯。";
+        }
+      }
+    }
+    else if (intent === "HomeAutomation.SetDevice") {
+      if (all) {
+        id("lamp-desk").src = "img/desk_green.jpg";
+        id("lamp-floor").src = "img/floor_green.jpg";
+        if (lang === "en-US") {
+          text = "Switching lights to green.";
+        } else {
+          text = "把灯调成绿色。";
+        }
+      }
+      else {
+        if (location === "desk") {
+          if (device === "lamp" || device === "lamps" ||
+              device === "light" || device === "lights") {
+            id("lamp-desk").src = "img/desk_green.jpg";
+          }
+        }
+        else if (location === "floor") {
+          if (device === "lamp" || device === "lamps" ||
+              device === "light" || device === "lights") {
+            id("lamp-floor").src = "img/floor_green.jpg";
+          }
+        }
+
+        if (lang === "en-US") {
+          text = "Switching " + location + " " + device + " to green.";
+        } else {
+          text = "把" + translate(location + " " + device) + "调成绿色。";
+        }
+      }
+    }
+    else if (intent === "HomeAutomation.TurnOff") {
+      if (all) {
+        id("lamp-desk").src = "img/desk_off.jpg";
+        id("lamp-floor").src = "img/floor_off.jpg";
+        if (lang === "en-US") {
+          text = "Turning lights off.";
+        } else {
+          text = "关灯。";
+        }
+      }
+      else {
+        if (location === "desk") {
+          if (device === "lamp" || device === "lamps" ||
+              device === "light" || device === "lights") {
+            id("lamp-desk").src = "img/desk_off.jpg";
+          }
+        }
+        else if (location === "floor") {
+          if (device === "lamp" || device === "lamps" ||
+              device === "light" || device === "lights") {
+            id("lamp-floor").src = "img/floor_off.jpg";
+          }
+        }
+
+        if (lang === "en-US") {
+          text = "Turning " + location + " " + device + " off.";
+        } else {
+          text = "关掉" + translate(location + " " + device) + "。";
+        }
+      }
+    }
+    synthesize_speech(text);
+    display_result(text);
   }
 
   /**

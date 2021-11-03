@@ -53,6 +53,8 @@ body {
   display: flex;
   justify-content: space-evenly;
   width: 40%;
+  height: max-content;
+  margin: auto;
 }
 
 #lamp-desk {
