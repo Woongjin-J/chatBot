@@ -310,6 +310,7 @@
       }
       synthesize_speech(text);
     }
+
     // Temperature only
     else if (details.intent === "Weather.ChangeTemperatureUnit") {
       if (details.givenDate.getDate() === details.today.getDate()) { // present
@@ -323,6 +324,7 @@
       }
       synthesize_speech(text);
     }
+
     // Weather Advisory/Alert
     else if (details.intent === "Weather.GetWeatherAdvisory") {
       if (details.givenDate.getDate() === details.today.getDate()) { // present
@@ -342,7 +344,7 @@
    * @param {String} condition
    * @param {JSON} info
    * @param {String} unit
-   * @returns {String}
+   * @returns {String} Respond message
    */
   function present_weather(condition, info, unit) {
     let text;
@@ -364,7 +366,7 @@
    * @param {JSON} info
    * @param {Array} entities
    * @param {String} unit
-   * @returns {String}
+   * @returns {String} Respond message
    */
   function past_weather(condition, info, entities, unit) {
     let text;
@@ -387,7 +389,7 @@
    * @param {int} diff_in_days
    * @param {Array} entities
    * @param {String} unit
-   * @returns {String}
+   * @returns {String} Respond message
    */
   function future_weather(info, diff_in_days, entities, unit) {
     let text;
@@ -413,7 +415,7 @@
    * Returns present temperature message.
    * @param {JSON} info
    * @param {String} unit
-   * @returns {String}
+   * @returns {String} Respond message
    */
   function present_temperature(info, unit) {
     if (lang === "en-US") {
@@ -428,7 +430,7 @@
    * @param {JSON} info
    * @param {Array} entities
    * @param {String} unit
-   * @returns {String}
+   * @returns {String} Respond message
    */
   function past_temperature(info, entities, unit) {
     if (lang === "en-US") {
@@ -445,7 +447,7 @@
    * @param {int} diff_in_days
    * @param {Array} entities
    * @param {String} unit
-   * @returns {String}
+   * @returns {String} Respond message
    */
   function future_temperature(info, diff_in_days, entities, unit) {
     if (lang === "en-US") {
@@ -463,7 +465,7 @@
    * @param {JSON} info
    * @param {String} condition
    * @param {String} unit
-   * @returns {String}
+   * @returns {String} Respond message
    */
   async function present_advisory(info, condition, unit) {
     if (info.alerts) {
@@ -486,7 +488,7 @@
    * @param {int} diff_in_days
    * @param {Array} entities
    * @param {String} unit
-   * @returns {String}
+   * @returns {String} Respond message
    */
   async function future_advisory(info, diff_in_days, entities, unit) {
     if (info.alerts) {
@@ -505,7 +507,7 @@
   /**
    * Updates the temperature measurement and unit.
    * @param {Array} entities
-   * @returns {Array}
+   * @returns {Array} Measurement unit
    */
   function update_unit(entities) {
     for (let i = 0; i < entities.length; i++) {
@@ -525,7 +527,7 @@
   /**
    * Converts the noun phrase to adjective
    * @param {String} condition The weather condition
-   * @returns {String}
+   * @returns {String} Weather condition
    */
   function update_condition(condition) {
     if (condition === "Clouds") {
@@ -625,118 +627,142 @@
     return true;
   }
 
+  /**
+   * Determines which home automation action need to take (i.e. turn on the desk lamp)
+   * @param {String} intent
+   * @param {JSON} entities
+   */
   function home_automation(intent, entities) {
-    console.log("intent\n", intent);
-    console.log("entities\n", entities);
+    let device = {
+      type: "",
+      location: "",
+      setting: "",
+      all: true
+    }
 
-    let device;
-    let location;
-    let all = true;
     for (let i = 0; i < entities.length; i++) {
       if (entities[i].type === "HomeAutomation.Location") {
-        all = false;
-        location = entities[i].entity;
+        device.all = false;
+        device.location = entities[i].entity;
       }
-      if (entities[i].type === "HomeAutomation.DeviceType") device = entities[i].entity;
-      if (entities[i].type === "HomeAutomation.Quantifier") all = true;
+      if (entities[i].type === "HomeAutomation.DeviceType") device.type = entities[i].entity;
+      if (entities[i].type === "HomeAutomation.Setting") device.setting = entities[i].entity;
+      if (entities[i].type === "HomeAutomation.Quantifier") device.all = true;
     }
 
     let text;
     if (intent === "HomeAutomation.TurnOn") {
-      if (all) {
-        id("lamp-desk").src = "img/desk_white.jpg";
-        id("lamp-floor").src = "img/floor_white.jpg";
-        if (lang === "en-US") {
-          text = "Turning lights on.";
-        } else {
-          text = "开灯。";
-        }
-      }
-      else {
-        if (location === "desk") {
-          if (device === "lamp" || device === "lamps" ||
-              device === "light" || device === "lights") {
-            id("lamp-desk").src = "img/desk_white.jpg";
-          }
-        }
-        else if (location === "floor") {
-          if (device === "lamp" || device === "lamps" ||
-              device === "light" || device === "lights") {
-            id("lamp-floor").src = "img/floor_white.jpg";
-          }
-        }
-
-        if (lang === "en-US") {
-          text = "Turning " + location + " " + device + " on.";
-        } else {
-          text = "打开台灯。";
-        }
-      }
-    }
-    else if (intent === "HomeAutomation.SetDevice") {
-      if (all) {
-        id("lamp-desk").src = "img/desk_green.jpg";
-        id("lamp-floor").src = "img/floor_green.jpg";
-        if (lang === "en-US") {
-          text = "Switching lights to green.";
-        } else {
-          text = "把灯调成绿色。";
-        }
-      }
-      else {
-        if (location === "desk") {
-          if (device === "lamp" || device === "lamps" ||
-              device === "light" || device === "lights") {
-            id("lamp-desk").src = "img/desk_green.jpg";
-          }
-        }
-        else if (location === "floor") {
-          if (device === "lamp" || device === "lamps" ||
-              device === "light" || device === "lights") {
-            id("lamp-floor").src = "img/floor_green.jpg";
-          }
-        }
-
-        if (lang === "en-US") {
-          text = "Switching " + location + " " + device + " to green.";
-        } else {
-          text = "把" + translate(location + " " + device) + "调成绿色。";
-        }
-      }
+      text = light_switch(device, "white.jpg", "on");
     }
     else if (intent === "HomeAutomation.TurnOff") {
-      if (all) {
-        id("lamp-desk").src = "img/desk_off.jpg";
-        id("lamp-floor").src = "img/floor_off.jpg";
-        if (lang === "en-US") {
-          text = "Turning lights off.";
-        } else {
-          text = "关灯。";
-        }
-      }
-      else {
-        if (location === "desk") {
-          if (device === "lamp" || device === "lamps" ||
-              device === "light" || device === "lights") {
-            id("lamp-desk").src = "img/desk_off.jpg";
-          }
-        }
-        else if (location === "floor") {
-          if (device === "lamp" || device === "lamps" ||
-              device === "light" || device === "lights") {
-            id("lamp-floor").src = "img/floor_off.jpg";
-          }
-        }
-
-        if (lang === "en-US") {
-          text = "Turning " + location + " " + device + " off.";
-        } else {
-          text = "关掉" + translate(location + " " + device) + "。";
-        }
+      text = light_switch(device, "off.jpg", "off");
+    }
+    else if (intent === "HomeAutomation.SetDevice") {
+      if (device.setting === "white" || device.setting === "白色") {
+        text = change_light_color(device, "white.jpg");
+      } else if (device.setting === "green" || device.setting === "绿色") {
+        text = change_light_color(device, "green.jpg");
       }
     }
     synthesize_speech(text);
     display_result(text);
+  }
+
+  /**
+   * Turns on / off the light
+   * @param {Object} device
+   * @param {String} src image source ending
+   * @param {String} status on/off
+   * @returns {String} Respond message
+   */
+  function light_switch(device, src, status) {
+    let text;
+    if (device.all) {
+      id("lamp-desk").src = "img/desk_" + src;
+      id("lamp-floor").src = "img/floor_" + src;
+      if (lang === "en-US") {
+        text = "Turning " + status + " lights.";
+      } else {
+        if (status === "on") {
+          text = "开灯。";
+        } else {
+          text = "关灯。";
+        }
+      }
+    }
+    else {
+      set_image_source(device, src);
+
+      if (lang === "en-US") {
+        text = "Turning " + status + " " + device.location + " " + device.type  + ".";
+      } else {
+        if (status === "on") {
+          text = "打开" + device.location;
+          if (device.location === "桌上" || device.location === "地上") {
+            text += "的";
+          }
+          text += device.type + "。";
+        } else {
+          text = "关掉" + device.location;
+          if (device.location === "桌上" || device.location === "地上") {
+            text += "的";
+          }
+          text += device.type + "。";
+        }
+      }
+    }
+    return text;
+  }
+
+  /**
+   * Changes the light color (white/green)
+   * @param {Object} device
+   * @param {String} src Image source ending
+   * @returns {String} Respond message
+   */
+  function change_light_color(device, src) {
+    let text;
+    if (device.all) {
+      id("lamp-desk").src = "img/desk_" + src;
+      id("lamp-floor").src = "img/floor_" + src;
+      if (lang === "en-US") {
+        text = "Changing lights to " + device.setting + ".";
+      } else {
+        text = "把灯调成" + device.setting + "。";
+      }
+    }
+    else {
+      set_image_source(device, src);
+
+      if (lang === "en-US") {
+        text = "Changing " + device.location + " " + device.type + " to " + device.setting + ".";
+      } else {
+        text = "把" + device.location;
+        if (device.location === "桌上" || device.location === "地上") {
+          text += "的";
+        }
+        text += device.type + "调成" + device.setting + "。";
+      }
+    }
+    return text;
+  }
+
+  /**
+   * Sets the images to requested one (light on / light in white, light off, light in green)
+   * @param {Object} device
+   * @param {String} src Image source ending
+   */
+  function set_image_source(device, src) {
+    if (device.type === "lamp" || device.type === "lamps" || device.type === "light" ||
+          device.type === "lights" || device.type === "桌灯" || device.type === "灯" ||
+          device.type === "落地灯") {
+      if (device.location === "desk" || device.location === "桌" || device.location === "桌上") {
+        id("lamp-desk").src = "img/desk_" + src;
+      }
+      else if (device.location === "floor" || device.location === "落地" || device.location === "地上") {
+        id("lamp-floor").src = "img/floor_" + src;
+      }
+    }
   }
 
   /**
