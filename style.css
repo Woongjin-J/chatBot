@@ -28,7 +28,7 @@ body {
   border-radius: 5px;
 }
 
-#respondDiv {
+#respondDiv, #searchRespond {
   width: fit-content;
   margin: 5px 20% 10px 5px;
   border: thin solid rgb(154, 224, 201);
@@ -37,7 +37,21 @@ body {
 }
 
 #respondDiv p, #requestDiv p {
-  margin: 5px;
+  margin: 10px;
+}
+
+#searchRespond img {
+  width: 220px;
+  height: 320px;
+  margin: 15px 0 15px 15px;
+}
+
+#searchRespond p, #searchRespond h1 {
+  margin: 20px;
+}
+
+#searchRespond {
+  display: flex;
 }
 
 #requestDiv {

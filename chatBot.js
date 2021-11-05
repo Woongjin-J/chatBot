@@ -25,6 +25,10 @@
   const ONECALL_URL = "https://api.openweathermap.org/data/2.5/onecall{forcast}?lat={lat}&lon={lon}&dt={time}&units={measurement}&appid=acf380c77f1250015c7e020d4957ee34";
   const COORD_URL = "https://api.openweathermap.org/data/2.5/weather?q={city}&units={measurement}&APPID=acf380c77f1250015c7e020d4957ee34";
 
+  // Search key
+  const searchKey = "63ddfb9f83a644aca55a58f12c392697";
+  const term = "Microsoft Bing Search Services";
+
   document.addEventListener("DOMContentLoaded", init);
 
   /**
@@ -176,6 +180,7 @@
   async function giveResponse(result) {
     let intent = result.topScoringIntent.intent;
     let entities = result.entities;
+
     if (intent === "Weather.CheckWeatherValue" || intent === "Weather.ChangeTemperatureUnit"
                                                || intent === "Weather.GetWeatherAdvisory") {
       weather_request(intent, entities);
@@ -183,9 +188,13 @@
     else if (intent === "HomeAutomation.TurnOn" || intent === "HomeAutomation.TurnOff"
                                                 || intent === "HomeAutomation.SetDevice") {
       home_automation(intent, entities);
+    } else if (intent === "Web.WebSearch") {
+      web_search(entities);
     }
   }
 
+
+  /* ---------------------------- Weather Request Start ---------------------------- */
   /**
    * Determines the weather request and respond with both text and audio
    * @param {String} intent
@@ -626,7 +635,10 @@
     }
     return true;
   }
+  /* ----------------------------- Weather Request End ----------------------------- */
 
+
+  /* ---------------------------- Home Automation Start ---------------------------- */
   /**
    * Determines which home automation action need to take (i.e. turn on the desk lamp)
    * @param {String} intent
@@ -764,6 +776,111 @@
       }
     }
   }
+  /* ---------------------------- Home Automation End ------------------------------ */
+
+
+  /* ----------------------------- Web Search Start -------------------------------- */
+
+  async function web_search(entities) {
+    let text;
+    let type;
+    let query;
+    let builtInUrl;
+
+    for (let i = 0; i < entities.length; i++) {
+      if (entities[i].type === "Web.SearchText") {
+        if (entities[i].entity === "Movie") {
+          type = entities[i].entity;
+        } else {
+          query = entities[i].entity;
+        }
+      }
+
+      if (entities[i].type === "builtin.url") {
+        builtInUrl =  entities[i].entity;
+      }
+    }
+
+    let result = await search(query);
+    console.log(result);
+    if (builtInUrl) {
+      builtInUrl = result.entities.value[0].url;
+      if (!builtInUrl) {
+        builtInUrl = result.webPages.value[0].url;
+      }
+      let name = result.entities.value[0].name;
+      text = "Ok, here's the link to " + name;
+      synthesize_speech(text);
+      display_result(text);
+
+      let result_div = document.createElement("div");
+      let p = document.createElement("p");
+      let a = document.createElement("a");
+      result_div.setAttribute("id", "respondDiv");
+
+      a.href = builtInUrl;
+      a.innerHTML = builtInUrl;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      p.appendChild(a);
+      result_div.appendChild(p);
+      id("respondBox").appendChild(result_div);
+      id("respondBox").scrollTo(0, id("respondBox").scrollHeight);
+    }
+    else {
+      let name = result.entities.value[0].name;
+      let description = result.webPages.value[0].snippet;
+      let img_url = result.entities.value[0].image.hostPageUrl;
+
+      text = "Ok, here's the information about " + name;
+      synthesize_speech(text);
+      display_result(text);
+      display_search_result(name, description, img_url);
+    }
+  }
+
+  async function search(query) {
+    try {
+      let body = await fetch(`https://api.bing.microsoft.com/v7.0/search?q=${query}&mkt=en-us&count=10&offset=0`,
+      {
+        method: "GET",
+        headers: {
+          'Ocp-Apim-Subscription-Key': searchKey,
+          'Content-type': 'application/json'
+        },
+      })
+        .then(r => r.json());
+
+      return body;
+    }
+    catch( err ) {
+      return console.log( "Error in translation request", err );
+    }
+  }
+
+  function display_search_result(name, text, image) {
+    let result_div = document.createElement("div");
+    let text_div = document.createElement("div");
+    let h1 = document.createElement("h1");
+    let p = document.createElement("p");
+    let img = document.createElement("img");
+    result_div.setAttribute("id", "searchRespond");
+
+    img.src = image;
+    result_div.appendChild(img);
+
+    h1.innerHTML = name;
+    p.innerHTML = text;
+    text_div.appendChild(h1);
+    text_div.appendChild(p);
+
+    result_div.appendChild(text_div);
+    id("respondBox").appendChild(result_div);
+    id("respondBox").scrollTo(0, id("respondBox").scrollHeight);
+  }
+
+  /* ------------------------------ Web Search End --------------------------------- */
+
 
   /**
    * Converts the returning text message into audio output to play out through the speaker.
@@ -849,7 +966,7 @@
    */
   async function translate(message, language) {
     try {
-      let body = await fetch( `https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=${language}`,
+      let body = await fetch(`https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=${language}`,
       {
         method: "POST",
         headers: {
