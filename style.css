@@ -28,7 +28,7 @@ body {
   border-radius: 5px;
 }
 
-#respondDiv, #searchRespond {
+#respondDiv, #searches {
   width: fit-content;
   margin: 5px 20% 10px 5px;
   border: thin solid rgb(154, 224, 201);
@@ -36,22 +36,43 @@ body {
   background-color: rgb(154, 224, 201);
 }
 
+#searchRespond {
+  /* width: fit-content; */
+  /* height: 25vh; */
+  max-height: 25vh;
+  margin: 15px 15px 10px 15px;
+  border: thin solid rgb(79, 189, 152);
+  border-radius: 5px;
+  background-color: rgb(79, 189, 152);
+  font-size: 16px;
+  display: flex;
+}
+
 #respondDiv p, #requestDiv p {
   margin: 10px;
 }
 
-#searchRespond img {
-  width: 220px;
-  height: 320px;
-  margin: 15px 0 15px 15px;
-}
-
-#searchRespond p, #searchRespond h1 {
-  margin: 20px;
-}
-
-#searchRespond {
+.imgs {
+  width: 30%;
+  margin: 5px 0 5px 5px;
   display: flex;
+}
+
+.imgs img {
+  max-width: 100%;
+  max-height: 100%;
+  margin: auto;
+}
+
+.text {
+  width: fit-content;
+  overflow: scroll;
+  margin: 5px 5px 5px 0;
+  /* height: 90%; */
+}
+
+#searchRespond p, #searchRespond h3 {
+  margin: 0 5px 0 10px;
 }
 
 #requestDiv {
@@ -68,7 +89,7 @@ body {
   justify-content: space-evenly;
   width: 40%;
   height: max-content;
-  margin: auto;
+  margin: auto 0 0 0;
 }
 
 #lamp-desk {

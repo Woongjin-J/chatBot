@@ -781,14 +781,20 @@
 
   /* ----------------------------- Web Search Start -------------------------------- */
 
+  /**
+   * Determines the query user is asking for, and return the messages found
+   * @param {JSON} entities
+   */
   async function web_search(entities) {
-    let text;
     let type;
     let query;
     let builtInUrl;
 
+    let text = "Sorry, I don't understand.";
+    if (lang === "zh-CN") text = "对不起，我不明白你的意思。";
+
     for (let i = 0; i < entities.length; i++) {
-      if (entities[i].type === "Web.SearchText") {
+      if (entities[i].type === "Web.SearchText" || entities[i].type === "Web.SearchEngine") {
         if (entities[i].entity === "Movie") {
           type = entities[i].entity;
         } else {
@@ -796,52 +802,152 @@
         }
       }
 
-      if (entities[i].type === "builtin.url") {
+      if (entities[i].type === "builtin.url" || entities[i].type === "Web.SearchEngine") {
         builtInUrl =  entities[i].entity;
       }
     }
 
-    let result = await search(query);
-    console.log(result);
+    let result = await search(query, lang);
     if (builtInUrl) {
-      builtInUrl = result.entities.value[0].url;
-      if (!builtInUrl) {
-        builtInUrl = result.webPages.value[0].url;
-      }
-      let name = result.entities.value[0].name;
-      text = "Ok, here's the link to " + name;
-      synthesize_speech(text);
-      display_result(text);
-
-      let result_div = document.createElement("div");
-      let p = document.createElement("p");
-      let a = document.createElement("a");
-      result_div.setAttribute("id", "respondDiv");
-
-      a.href = builtInUrl;
-      a.innerHTML = builtInUrl;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      p.appendChild(a);
-      result_div.appendChild(p);
-      id("respondBox").appendChild(result_div);
-      id("respondBox").scrollTo(0, id("respondBox").scrollHeight);
+      text = direct_to_url(builtInUrl, result);
     }
-    else {
-      let name = result.entities.value[0].name;
-      let description = result.webPages.value[0].snippet;
-      let img_url = result.entities.value[0].image.hostPageUrl;
-
-      text = "Ok, here's the information about " + name;
-      synthesize_speech(text);
+    else if (query) {
+      text = display_query_results(query, result);
+    } else {
       display_result(text);
-      display_search_result(name, description, img_url);
     }
+    synthesize_speech(text);
   }
 
-  async function search(query) {
+  /**
+   * Shows the link to the user and open a new tab to the link requested.
+   * @param {String} builtInUrl
+   * @param {JSON} result
+   * @returns {String} Audio respond
+   */
+  function direct_to_url(builtInUrl, result) {
+    let text;
+    let name
+    if (lang === "en-US") {
+      builtInUrl = result.entities.value[0].url;
+      name = result.entities.value[0].name;
+    }
+    if (!builtInUrl || lang === "zh-CN") {
+      builtInUrl = result.webPages.value[0].url;
+      name = result.webPages.value[0].name;
+    }
+    text = "Ok, here's the link to " + name;
+    if (lang === "zh-CN") text = "好的，这是" + name + "的链接";
+    display_result(text);
+
+    let result_div = document.createElement("div");
+    let p = document.createElement("p");
+    let a = document.createElement("a");
+    result_div.setAttribute("id", "respondDiv");
+
+    a.href = builtInUrl;
+    a.innerHTML = builtInUrl;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    p.appendChild(a);
+    result_div.appendChild(p);
+    id("respondBox").appendChild(result_div);
+    id("respondBox").scrollTo(0, id("respondBox").scrollHeight);
+    window.open(builtInUrl);
+    return text;
+  }
+
+  /**
+   * Displays the results of the query.
+   * @param {String} query
+   * @param {JSON} result
+   * @returns {String} Audio respond
+   */
+  function display_query_results(query, result) {
+    let text;
+    let list;
+    if (lang === "en-US") {
+      text = "Ok, here's what I found about " + query;
+      list = result.entities.value;
+    } else {
+      text = "好的，这是我搜索到关于" + query + "的信息";
+      list = result.webPages.value;
+    }
+    display_result(text);
+    let result_div = document.createElement("div");
+    result_div.setAttribute("id", "searches");
+
+    for (let i = 0; i < 3; i++) {
+      let name = list[i].name;
+      let description;
+      let img_url;
+      let web_url;
+      if (lang === "en-US") {
+        description = list[i].description;
+        img_url = list[i].image.hostPageUrl;
+        web_url = list[i].webSearchUrl;
+      } else {
+        description = list[i].snippet;
+        web_url = list[i].url;
+      }
+      let div = display_search_result(name, description, img_url, web_url);
+      result_div.appendChild(div);
+    }
+    id("respondBox").appendChild(result_div);
+    id("respondBox").scrollTo(0, id("respondBox").scrollHeight);
+    return text;
+  }
+
+  /**
+   * Build the information block that includes image and description.
+   * @param {String} name
+   * @param {String} text description of searched info
+   * @param {String} image
+   * @param {String} url
+   * @returns {Object} Whole tag of searched info
+   */
+  function display_search_result(name, text, image, url) {
+    let div = document.createElement("div");
+    div.setAttribute("id", "searchRespond");
+
+    let text_div = document.createElement("div");
+    text_div.setAttribute("class", "text");
+
+    if (lang === "en-US") {
+      let img_div = document.createElement("div");
+      let img = document.createElement("img");
+      img.src = image;
+      img_div.setAttribute("class", "imgs");
+      img_div.appendChild(img);
+      div.appendChild(img_div);
+    }
+
+    let a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.setAttribute("style", "text-decoration: none; color: black");
+
+    let h3 = document.createElement("h3");
+    let p = document.createElement("p");
+    h3.innerHTML = name;
+    p.innerHTML = text;
+    text_div.appendChild(h3);
+    text_div.appendChild(p);
+
+    div.appendChild(text_div);
+    a.appendChild(div);
+    return a;
+  }
+
+  /**
+   * Fetch the information of the query.
+   * @param {String} query Information needs to be searched
+   * @returns {JSON}
+   */
+  async function search(query, lang) {
     try {
-      let body = await fetch(`https://api.bing.microsoft.com/v7.0/search?q=${query}&mkt=en-us&count=10&offset=0`,
+      let body = await fetch(`https://api.bing.microsoft.com/v7.0/search?q=${query}&mkt=${lang}&count=10&offset=0`,
       {
         method: "GET",
         headers: {
@@ -856,27 +962,6 @@
     catch( err ) {
       return console.log( "Error in translation request", err );
     }
-  }
-
-  function display_search_result(name, text, image) {
-    let result_div = document.createElement("div");
-    let text_div = document.createElement("div");
-    let h1 = document.createElement("h1");
-    let p = document.createElement("p");
-    let img = document.createElement("img");
-    result_div.setAttribute("id", "searchRespond");
-
-    img.src = image;
-    result_div.appendChild(img);
-
-    h1.innerHTML = name;
-    p.innerHTML = text;
-    text_div.appendChild(h1);
-    text_div.appendChild(p);
-
-    result_div.appendChild(text_div);
-    id("respondBox").appendChild(result_div);
-    id("respondBox").scrollTo(0, id("respondBox").scrollHeight);
   }
 
   /* ------------------------------ Web Search End --------------------------------- */
