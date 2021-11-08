@@ -115,12 +115,14 @@
    */
   function recognize_speech(recognizer, responseConfig) {
     let listening = false;
+    let count = 0;
     recognizer.startContinuousRecognitionAsync();
     recognizer.recognizing = (s, e) => {
       id("phraseDiv").innerHTML = e.result.text;
     }
 
     recognizer.recognized = (s, e) => {
+      count = 0;
       synthesizer = new SpeechSDK.SpeechSynthesizer(responseConfig);
       if (e.result.reason == SpeechSDK.ResultReason.RecognizedIntent) {
         if (e.result.intentId === "Command.StartTalking") { // Manually added intent 'Command.StartTalking' on LUIS
@@ -153,7 +155,26 @@
         }
       }
       else if (e.result.reason == SpeechSDK.ResultReason.NoMatch) {
-        console.log("NOMATCH: Speech could not be recognized.");
+        // console.log("NOMATCH: Speech could not be recognized.");
+        let text;
+        count++;
+        if (count % 5 === 0) {
+          if (lang === "en-US") {
+            text = "You can try: 'What's the weather?', 'Turn on the light',  or 'Search...'";
+          } else {
+            text = "你可以试试：‘今天天气怎么样“，’开灯‘，或者 ’搜索 <你要搜索的内容>‘";
+          }
+          display_result(text);
+        }
+        if (count === 21) {
+          if (lang === "en-US") {
+            text = "Session terminated. Please click `Start` to start a new session."
+          } else {
+            text = "会话终止。请点击`开始`以开始新的会话。"
+          }
+          display_result(text);
+          start_talk();
+        }
       }
     };
 
