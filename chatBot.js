@@ -27,7 +27,6 @@
 
   // Search key
   const searchKey = "63ddfb9f83a644aca55a58f12c392697";
-  const term = "Microsoft Bing Search Services";
 
   document.addEventListener("DOMContentLoaded", init);
 
@@ -91,6 +90,7 @@
 
       speechConfig.speechRecognitionLanguage = lang;
       responseConfig.speechSynthesisLanguage = lang;
+      // if (lang === "zh-CN") responseConfig.speechSynthesisVoiceName = "zh-CN-XiaomoNeural";//zh-CN-XiaomoNeural//zh-CN-XiaoxuanNeural
       responseConfig.enableDictation();
 
       recognizer = new SpeechSDK.IntentRecognizer(speechConfig, audioConfig);
@@ -884,7 +884,7 @@
       result = await bing_search(searchText);
       text = display_query_results(searchText, result);
     }
-
+    // Speech not understood
     else {
       display_result(text);
     }
@@ -913,12 +913,12 @@
       }
     }
     else {
-      name = "search result.";
+      name = "search result";
       if (lang === "zh-CN") name = "搜索结果";
     }
 
     text = "Ok, here's the link to " + name + ".";
-    if (lang === "zh-CN") text = "好的，这是" + name + "的链接。";
+    if (lang === "zh-CN") text = "好的，下面的链接是" + name + "。";
     display_result(text);
 
     let result_div = document.createElement("div");
