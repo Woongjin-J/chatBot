@@ -913,12 +913,12 @@
       }
     }
     else {
-      name = "seasrch result.";
+      name = "search result.";
       if (lang === "zh-CN") name = "搜索结果";
     }
 
-    text = "Ok, here's the link to " + name;
-    if (lang === "zh-CN") text = "好的，这是" + name + "的链接";
+    text = "Ok, here's the link to " + name + ".";
+    if (lang === "zh-CN") text = "好的，这是" + name + "的链接。";
     display_result(text);
 
     let result_div = document.createElement("div");
@@ -948,10 +948,10 @@
     let text;
     let list;
     if (lang === "en-US") {
-      text = "Ok, here's what I found about " + query;
+      text = "Ok, here's what I found about " + query + ".";
       list = result.entities.value;
     } else {
-      text = "好的，这是我搜索到关于" + query + "的信息";
+      text = "好的，这是我搜索到关于" + query + "的信息。";
       list = result.webPages.value;
     }
     display_result(text);
