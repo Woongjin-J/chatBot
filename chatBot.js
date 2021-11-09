@@ -122,9 +122,9 @@
     }
 
     recognizer.recognized = (s, e) => {
-      count = 0;
       synthesizer = new SpeechSDK.SpeechSynthesizer(responseConfig);
       if (e.result.reason == SpeechSDK.ResultReason.RecognizedIntent) {
+        count = 0;
         if (e.result.intentId === "Command.StartTalking") { // Manually added intent 'Command.StartTalking' on LUIS
           let text;
           if (lang === "en-US") {
@@ -155,26 +155,8 @@
         }
       }
       else if (e.result.reason == SpeechSDK.ResultReason.NoMatch) {
-        // console.log("NOMATCH: Speech could not be recognized.");
-        let text;
         count++;
-        if (count % 5 === 0) {
-          if (lang === "en-US") {
-            text = "You can try: 'What's the weather?', 'Turn on the light',  or 'Search...'";
-          } else {
-            text = "你可以试试：‘今天天气怎么样“，’开灯‘，或者 ’搜索 <你要搜索的内容>‘";
-          }
-          display_result(text);
-        }
-        if (count === 21) {
-          if (lang === "en-US") {
-            text = "Session terminated. Please click `Start` to start a new session."
-          } else {
-            text = "会话终止。请点击`开始`以开始新的会话。"
-          }
-          display_result(text);
-          start_talk();
-        }
+        command_instruction(count);
       }
     };
 
@@ -274,7 +256,7 @@
               return [info, details];
             })
             .then(weather)
-            .catch();
+            .catch(error);
       }, error);
     }
     else { // specified location
@@ -308,7 +290,7 @@
           return [info, details];
         })
         .then(weather)
-        .catch();
+        .catch(error);
     }
   }
 
@@ -656,6 +638,38 @@
     }
     return true;
   }
+
+  /**
+   * Modifies the text for easier readibility.
+   * If `breaks` is false, modify the text for speech synthesys. It will set to
+   * true after speech synthesys for better visual presentation.
+   * @param {String} text
+   * @param {Boolean} breaks
+   * @returns {String}
+   */
+   function modify_text(text, breaks) {
+    let arr;
+    if (!breaks) {
+      arr = text.split("*");
+      arr[0] = arr[0].substring(3);
+      for (let i = 0; i < 2; i++) {
+        arr[i] = arr[i].replace(arr[i].substring(arr[i].search("\n"), arr[i].search("\n")+1), " ");
+      }
+      for (let i = 0; i < arr.length; i++) {
+        arr[i] = arr[i].replace("...", "\n");
+      }
+      arr[arr.length - 1] = arr[arr.length - 1].replace("\n", " ");
+    } else {
+      arr = text.split("\n");
+    }
+
+    let alert = "";
+    for (let i = 0; i < arr.length - 1; i++) {
+      alert += arr[i];
+      if (breaks) alert += "<br>";
+    }
+    return alert;
+  }
   /* ----------------------------- Weather Request End ----------------------------- */
 
 
@@ -801,42 +815,80 @@
 
 
   /* ----------------------------- Web Search Start -------------------------------- */
-
   /**
-   * Determines the query user is asking for, and return the messages found
+   * Determines the query user is asking for, and return the messages found.
    * @param {JSON} entities
    */
   async function web_search(entities) {
-    let type;
-    let query;
+    let searchEngine;
+    let searchText;
     let builtInUrl;
+    let result;
 
     let text = "Sorry, I don't understand.";
     if (lang === "zh-CN") text = "对不起，我不明白你的意思。";
 
     for (let i = 0; i < entities.length; i++) {
-      if (entities[i].type === "Web.SearchText" || entities[i].type === "Web.SearchEngine") {
-        if (entities[i].entity === "Movie") {
-          type = entities[i].entity;
-        } else {
-          query = entities[i].entity;
-        }
+      if (entities[i].type === "Web.SearchText") {
+        searchText = entities[i].entity;
       }
 
-      if (entities[i].type === "builtin.url" || entities[i].type === "Web.SearchEngine") {
+      if (entities[i].type === "builtin.url") {
         builtInUrl =  entities[i].entity;
       }
+
+      if (entities[i].type === "Web.SearchEngine") {
+        searchEngine = entities[i].entity;
+      }
     }
 
-    let result = await search(query, lang);
-    if (builtInUrl) {
-      text = direct_to_url(builtInUrl, result);
+    // Given search engine name only (i.e. Google, Bing, Yahoo, etc.) to search
+    // on requested query.
+    if (searchEngine) {
+      if (lang === "zh-CN") searchEngine = await translate(searchEngine, "en");
+      let http = "https://" + searchEngine + ".com/";
+
+      if (searchText) {
+        if (searchEngine.toLowerCase() === "baidu") {
+          http += "s?wd=" + searchText;
+        } else {
+          http += "search?q=" + searchText;
+        }
+        console.log(http);
+        text = direct_to_url(http, '');
+      }
+      else {
+        text = direct_to_url(http, '');
+      }
     }
-    else if (query) {
-      text = display_query_results(query, result);
-    } else {
+    // Given url address (i.e. google.com, facebook.com, etc.) to direct to
+    // Show query search result if query is given (main page otherwise).
+    else if (builtInUrl) {
+      result = await bing_search(builtInUrl);
+      if (searchText) {
+        let http = "https://" + builtInUrl;
+        if (builtInUrl.toLowerCase() === "baidu.com") {
+          http += "s?wd=" + searchText;
+        } else {
+          http += "search?q=" + searchText;
+        }
+        text = direct_to_url(http, result);
+      }
+      else {
+        result = await bing_search(builtInUrl);
+        text = direct_to_url(builtInUrl, result);
+      }
+    }
+    // Given query only, shows the list of related results.
+    else if (searchText) {
+      result = await bing_search(searchText);
+      text = display_query_results(searchText, result);
+    }
+
+    else {
       display_result(text);
     }
+
     synthesize_speech(text);
   }
 
@@ -849,14 +901,22 @@
   function direct_to_url(builtInUrl, result) {
     let text;
     let name
-    if (lang === "en-US") {
-      builtInUrl = result.entities.value[0].url;
-      name = result.entities.value[0].name;
+
+    if (result) {
+      if (lang === "en-US") {
+        builtInUrl = result.entities.value[0].url;
+        name = result.entities.value[0].name;
+      }
+      if (!builtInUrl || lang === "zh-CN") {
+        builtInUrl = result.webPages.value[0].url;
+        name = result.webPages.value[0].name;
+      }
     }
-    if (!builtInUrl || lang === "zh-CN") {
-      builtInUrl = result.webPages.value[0].url;
-      name = result.webPages.value[0].name;
+    else {
+      name = "seasrch result.";
+      if (lang === "zh-CN") name = "搜索结果";
     }
+
     text = "Ok, here's the link to " + name;
     if (lang === "zh-CN") text = "好的，这是" + name + "的链接";
     display_result(text);
@@ -898,7 +958,7 @@
     let result_div = document.createElement("div");
     result_div.setAttribute("id", "searches");
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < (length = list.length > 3 ? 3 : list.length); i++) {
       let name = list[i].name;
       let description;
       let img_url;
@@ -911,7 +971,7 @@
         description = list[i].snippet;
         web_url = list[i].url;
       }
-      let div = display_search_result(name, description, img_url, web_url);
+      let div = build_result_block(name, description, img_url, web_url);
       result_div.appendChild(div);
     }
     id("respondBox").appendChild(result_div);
@@ -920,14 +980,15 @@
   }
 
   /**
-   * Build the information block that includes image and description.
+   * Build the information block that includes list of description with
+   * image (chinese version does not include image).
    * @param {String} name
    * @param {String} text description of searched info
    * @param {String} image
    * @param {String} url
    * @returns {Object} Whole tag of searched info
    */
-  function display_search_result(name, text, image, url) {
+  function build_result_block(name, text, image, url) {
     let div = document.createElement("div");
     div.setAttribute("id", "searchRespond");
 
@@ -966,7 +1027,7 @@
    * @param {String} query Information needs to be searched
    * @returns {JSON}
    */
-  async function search(query, lang) {
+  async function bing_search(query) {
     try {
       let body = await fetch(`https://api.bing.microsoft.com/v7.0/search?q=${query}&mkt=${lang}&count=10&offset=0`,
       {
@@ -980,89 +1041,12 @@
 
       return body;
     }
-    catch( err ) {
-      return console.log( "Error in translation request", err );
+    catch(err) {
+      return console.log("Error in bing search request", err);
     }
   }
-
   /* ------------------------------ Web Search End --------------------------------- */
 
-
-  /**
-   * Converts the returning text message into audio output to play out through the speaker.
-   * Displays the returning text message in the respond block.
-   * @param {String} text Output text
-   */
-  function synthesize_speech(text) {
-    synthesizer.speakTextAsync(text,
-      function(result) {
-        synthesizer.close();
-        return result.audioData;
-      },
-      function(error) {
-        console.log(error);
-        synthesizer.close();
-      });
-  }
-
-  /**
-   * Displays the result message on the screen.
-   * @param {String} text
-   */
-  function display_result(text) {
-    let div = document.createElement("div");
-    let p = document.createElement("p");
-    div.setAttribute("id", "respondDiv");
-    p.innerHTML = text;
-    div.appendChild(p);
-    id("respondBox").appendChild(div);
-    id("respondBox").scrollTo(0, id("respondBox").scrollHeight);
-  }
-
-  /**
-   * Stops the continuous speech recognition.
-   * @param {SpeechSDK} recognizer
-   */
-  function stop_recognition(recognizer) {
-    id("ch").disabled = false;
-    id("en").disabled = false;
-    id("mic").classList.remove("hidden");
-    id("record").classList.add("hidden");
-    id("btn-txt").classList.remove("hidden");
-    recognizer.stopContinuousRecognitionAsync();
-  }
-
-  /**
-   * Modifies the text for easier readibility.
-   * If `breaks` is false, modify the text for speech synthesys. It will set to
-   * true after speech synthesys for better visual presentation.
-   * @param {String} text
-   * @param {Boolean} breaks
-   * @returns {String}
-   */
-  function modify_text(text, breaks) {
-    let arr;
-    if (!breaks) {
-      arr = text.split("*");
-      arr[0] = arr[0].substring(3);
-      for (let i = 0; i < 2; i++) {
-        arr[i] = arr[i].replace(arr[i].substring(arr[i].search("\n"), arr[i].search("\n")+1), " ");
-      }
-      for (let i = 0; i < arr.length; i++) {
-        arr[i] = arr[i].replace("...", "\n");
-      }
-      arr[arr.length - 1] = arr[arr.length - 1].replace("\n", " ");
-    } else {
-      arr = text.split("\n");
-    }
-
-    let alert = "";
-    for (let i = 0; i < arr.length - 1; i++) {
-      alert += arr[i];
-      if (breaks) alert += "<br>";
-    }
-    return alert;
-  }
 
   /**
    * Translates the message passed in to the given language
@@ -1090,8 +1074,8 @@
 
       return body[0].translations[0].text;
     }
-    catch( err ) {
-      return console.log( "Error in translation request", err );
+    catch(err) {
+      return console.log("Error in translation request", err);
     }
   }
 
@@ -1106,10 +1090,7 @@
   }
 
 
-
-
   /* ------------------------------ Helper Functions  ------------------------------ */
-
   /**
    * Returns the element that has the ID attribute with the specified value.
    * @param {string} idName - element ID
@@ -1153,5 +1134,84 @@
     window.console.log(err);
     id("phraseDiv").innerHTML += "ERROR: " + err;
     id("talkButton").disabled = false;
+  }
+
+  /**
+   * Converts the returning text message into audio output to play out through the speaker.
+   * Displays the returning text message in the respond block.
+   * @param {String} text Output text
+   */
+   function synthesize_speech(text) {
+    synthesizer.speakTextAsync(text,
+      function(result) {
+        synthesizer.close();
+        return result.audioData;
+      },
+      function(error) {
+        console.log(error);
+        synthesizer.close();
+      });
+  }
+
+  /**
+   * Displays the result message on the screen.
+   * @param {String} text
+   */
+  function display_result(text) {
+    let div = document.createElement("div");
+    let p = document.createElement("p");
+    div.setAttribute("id", "respondDiv");
+    p.innerHTML = text;
+    div.appendChild(p);
+    id("respondBox").appendChild(div);
+    id("respondBox").scrollTo(0, id("respondBox").scrollHeight);
+  }
+
+  /**
+   * Displays instructions on how to use the service.
+   * If no speech recognized for a long period of time, the recording
+   * will be stopped.
+   * @param {int} count
+   */
+   function command_instruction(count) {
+    let text;
+    if (count === 5) {
+      if (lang === "en-US") {
+        text = "<strong>Try call my name first, for example...</strong> <br>\
+                      'Hey, Computer' or 'Computer'. <br><br>\
+                      <strong>Then try... </strong><br>\
+                      'What's the weather?', 'Turn on the light',  or <br>\
+                      'Search `query message`...'";
+      } else {
+        text = "<strong>试试先呼叫我的名字，比如：</strong><br>\
+                      “嗨，电脑” 或 “电脑”。<br><br>\
+                      <strong>然后试试：</strong><br>\
+                      “今天天气怎么样”，“开灯”，或 “搜索 <你要搜索的内容>”";
+      }
+      display_result(text);
+    }
+    if (count === 24) {
+      if (lang === "en-US") {
+        text = "Session terminated. Please click `Start` to start a new session."
+      } else {
+        text = "会话终止。请点击`开始`以开始新的会话。"
+      }
+      display_result(text);
+      synthesize_speech(text);
+      start_talk();
+    }
+  }
+
+  /**
+   * Stops the continuous speech recognition.
+   * @param {SpeechSDK} recognizer
+   */
+  function stop_recognition(recognizer) {
+    id("ch").disabled = false;
+    id("en").disabled = false;
+    id("mic").classList.remove("hidden");
+    id("record").classList.add("hidden");
+    id("btn-txt").classList.remove("hidden");
+    recognizer.stopContinuousRecognitionAsync();
   }
 })();
