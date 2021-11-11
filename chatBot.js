@@ -19,7 +19,7 @@
   const translatorKey = "36bb6d70543b4fc69134aa9469548009";
   const translatorRegion = "westus2";
 
-  // API url links
+  // OpenWeatherMap API url links
   // ONECALL_URL: weather informations
   // COORD_URL: API to retrieve the geological location (latitute & longitude)
   const ONECALL_URL = "https://api.openweathermap.org/data/2.5/onecall{forcast}?lat={lat}&lon={lon}&dt={time}&units={measurement}&appid=acf380c77f1250015c7e020d4957ee34";
@@ -174,6 +174,41 @@
       console.log("\n    Session stopped event.");
       recognizer.stopContinuousRecognitionAsync();
     };
+  }
+
+  /**
+   * Displays instructions on how to use the service.
+   * If no speech recognized for a long period of time, the recording
+   * will be stopped.
+   * @param {int} count
+   */
+   function command_instruction(count) {
+    let text;
+    if (count === 5) {
+      if (lang === "en-US") {
+        text = "<strong>Try call my name first, for example...</strong> <br>\
+                      'Hey, Computer' or 'Computer'. <br><br>\
+                      <strong>Then try... </strong><br>\
+                      'What's the weather?', 'Turn on the light',  or <br>\
+                      'Search `query message`...'";
+      } else {
+        text = "<strong>试试先呼叫我的名字，比如：</strong><br>\
+                      “嗨，电脑” 或 “电脑”。<br><br>\
+                      <strong>然后试试：</strong><br>\
+                      “今天天气怎么样”，“开灯”，或 “搜索 <你要搜索的内容>”";
+      }
+      display_result(text);
+    }
+    if (count === 24) {
+      if (lang === "en-US") {
+        text = "Session terminated. Please click `Start` to start a new session."
+      } else {
+        text = "会话终止。请点击`开始`以开始新的会话。"
+      }
+      display_result(text);
+      synthesize_speech(text);
+      start_talk();
+    }
   }
 
   /**
@@ -1048,48 +1083,6 @@
   /* ------------------------------ Web Search End --------------------------------- */
 
 
-  /**
-   * Translates the message passed in to the given language
-   * @param {String} message
-   * @param {String} language
-   * @returns {String} translated message
-   */
-  async function translate(message, language) {
-    try {
-      let body = await fetch(`https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=${language}`,
-      {
-        method: "POST",
-        headers: {
-          'Ocp-Apim-Subscription-Key': translatorKey,
-          'Ocp-Apim-Subscription-Region': translatorRegion,
-          'Content-type': 'application/json',
-          'X-ClientTraceId': uuidv4().toString()
-        },
-        body: JSON.stringify([
-        {
-          'text': message
-        }]),
-      })
-        .then(r => r.json());
-
-      return body[0].translations[0].text;
-    }
-    catch(err) {
-      return console.log("Error in translation request", err);
-    }
-  }
-
-  /**
-   * Generates Unisersally Unique Identifier
-   * @returns {String}
-   */
-  function uuidv4() {
-    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
-      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-    );
-  }
-
-
   /* ------------------------------ Helper Functions  ------------------------------ */
   /**
    * Returns the element that has the ID attribute with the specified value.
@@ -1168,41 +1161,6 @@
   }
 
   /**
-   * Displays instructions on how to use the service.
-   * If no speech recognized for a long period of time, the recording
-   * will be stopped.
-   * @param {int} count
-   */
-   function command_instruction(count) {
-    let text;
-    if (count === 5) {
-      if (lang === "en-US") {
-        text = "<strong>Try call my name first, for example...</strong> <br>\
-                      'Hey, Computer' or 'Computer'. <br><br>\
-                      <strong>Then try... </strong><br>\
-                      'What's the weather?', 'Turn on the light',  or <br>\
-                      'Search `query message`...'";
-      } else {
-        text = "<strong>试试先呼叫我的名字，比如：</strong><br>\
-                      “嗨，电脑” 或 “电脑”。<br><br>\
-                      <strong>然后试试：</strong><br>\
-                      “今天天气怎么样”，“开灯”，或 “搜索 <你要搜索的内容>”";
-      }
-      display_result(text);
-    }
-    if (count === 24) {
-      if (lang === "en-US") {
-        text = "Session terminated. Please click `Start` to start a new session."
-      } else {
-        text = "会话终止。请点击`开始`以开始新的会话。"
-      }
-      display_result(text);
-      synthesize_speech(text);
-      start_talk();
-    }
-  }
-
-  /**
    * Stops the continuous speech recognition.
    * @param {SpeechSDK} recognizer
    */
@@ -1213,5 +1171,46 @@
     id("record").classList.add("hidden");
     id("btn-txt").classList.remove("hidden");
     recognizer.stopContinuousRecognitionAsync();
+  }
+
+  /**
+   * Translates the message passed in to the given language
+   * @param {String} message
+   * @param {String} language
+   * @returns {String} translated message
+   */
+   async function translate(message, language) {
+    try {
+      let body = await fetch(`https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=${language}`,
+      {
+        method: "POST",
+        headers: {
+          'Ocp-Apim-Subscription-Key': translatorKey,
+          'Ocp-Apim-Subscription-Region': translatorRegion,
+          'Content-type': 'application/json',
+          'X-ClientTraceId': uuidv4().toString()
+        },
+        body: JSON.stringify([
+        {
+          'text': message
+        }]),
+      })
+        .then(r => r.json());
+
+      return body[0].translations[0].text;
+    }
+    catch(err) {
+      return console.log("Error in translation request", err);
+    }
+  }
+
+  /**
+   * Generates Unisersally Unique Identifier
+   * @returns {String}
+   */
+  function uuidv4() {
+    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    );
   }
 })();
