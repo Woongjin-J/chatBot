@@ -226,8 +226,13 @@
     else if (intent === "HomeAutomation.TurnOn" || intent === "HomeAutomation.TurnOff"
                                                 || intent === "HomeAutomation.SetDevice") {
       home_automation(intent, entities);
-    } else if (intent === "Web.WebSearch") {
+    }
+    else if (intent === "Web.WebSearch") {
       web_search(entities);
+    }
+    else if (intent === "Calendar.CreateCalendarEntry" || intent === "Calendar.CreateCalendarEntry"
+                                                       || intent === "Calendar.FindCalendarEntry") {
+      calendar_event(intent, entities);
     }
   }
 
@@ -554,7 +559,7 @@
   /**
    * Updates the temperature measurement and unit.
    * @param {Array} entities
-   * @returns {Array} Measurement unit
+   * @returns {string[]} Measurement unit
    */
   function update_unit(entities) {
     for (let i = 0; i < entities.length; i++) {
@@ -1083,7 +1088,72 @@
   /* ------------------------------ Web Search End --------------------------------- */
 
 
-  /* ------------------------------ Helper Functions  ------------------------------ */
+  /* ---------------------------- Calendar Event Start ----------------------------- */
+  /**
+   *
+   * @param {String} intent
+   * @param {Array} entities
+   */
+  function calendar_event(intent, entities) {
+    // console.log("intent: ", intent);
+    // console.log("entities: ", entities);
+
+    let event = {
+      subject: '',
+      startDate: '',
+      endDate: '',
+      startTime: '',
+      endTime: ''
+    };
+
+    for (let i = 0; i < entities.length; i++) {
+      if (entities[i].type === "Calendar.Subject") event.subject = entities[i].entity;
+      if (entities[i].type === "Calendar.StartDate") event.startDate = entities[i].entity;
+      if (entities[i].type === "Calendar.EndDate") event.endDate = entities[i].entity;
+      if (entities[i].type === "Calendar.StartTime") event.startTime = entities[i].entity;
+      if (entities[i].type === "Calendar.EndTime") event.endTime = entities[i].entity;
+    }
+
+    let text = "Sorry, I don't understand.";
+    if (lang === "zh-CN") text = "对不起，我不明白你的意思。";
+
+    if (intent === "Calendar.CreateCalendarEntry") {
+      fetchEntry(event);
+    }
+    else if (intent === "Calendar.DeleteCalendarEntry") {
+
+    }
+    else if (intent === "Calendar.FindCalendarEntry") {
+
+    }
+  }
+
+  function fetchEntry(event) {
+    let url = "insert.php";
+    let subject = event.subject;
+    // let startDate = event.startDate;
+    // let startTime = event.startTime;
+    let params = new FormData();
+    params.append("subject", subject);
+    // params.append("date", startDate);
+    // params.append("time", startTime);
+    fetch("insert.php", {method: "POST", body: params})
+      .then(checkStatus)
+      .then(event_entry)
+      .catch(error);
+      // .then(response => response.text()).then(response => {
+      //   console.log(response);
+      // }).catch(error);
+  }
+
+  function event_entry(info) {
+    console.log(info);
+  }
+
+  /* ---------------------------- Calendar Event End ------------------------------- */
+
+
+  /* --------------------------- Helper Functions Start  --------------------------- */
   /**
    * Returns the element that has the ID attribute with the specified value.
    * @param {string} idName - element ID
@@ -1125,7 +1195,7 @@
    */
   function error(err) {
     window.console.log(err);
-    id("phraseDiv").innerHTML += "ERROR: " + err;
+    id("phraseDiv").innerHTML = "ERROR: " + err;
     id("talkButton").disabled = false;
   }
 
@@ -1213,4 +1283,5 @@
       (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
     );
   }
+  /* ---------------------------- Helper Functions End ----------------------------- */
 })();

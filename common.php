@@ -10,14 +10,13 @@
     $port = "8889";           # fill in with a port if necessary (will be different mac/pc)
     $user = "root";
     $password = "root";
-    $dbname = "calEventdb";
-
-    # Make a data source string that will be used in creating the PDO object
+    $dbname = "caldb";
     $ds = "mysql:host={$host}:{$port};dbname={$dbname};charset=utf8";
 
     try {
-      $db = new PDO($ds, $user, $password);
-      $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+      // $db = new PDO($ds, $user, $password);
+      // $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+      $db = new mysqli($host, $user, $password, $dbname);
       return $db;
     } catch (PDOException $ex) {
       fiveOthree_error("Can not connect to the database. Please try again later.");

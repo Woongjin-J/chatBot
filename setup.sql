@@ -1,7 +1,7 @@
 -- SQL to create a table of calendar events containing columns Date, Time,
 -- and Event
 
-USE calEventdb
+USE caldb;
 
 CREATE TABLE calEvent(
   date VARCHAR(255) NOT NULL,
