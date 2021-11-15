@@ -1,15 +1,15 @@
 <?php
   include 'common.php';
 
-  // Check that the $db is set.Then check $output is set and return the list of
-  // calendar event. (JSON)
-  if (isset($date)) {
+  if (isset($_GET['date'])) {
     $db = get_PDO();
-    if (isset($time)) {
-      $output = find_event_time($db, $date, $time);
-    } else {
-      $output = find_event_date($db, $date);
-    }
+
+    // if (isset($_GET['time'])) {
+    //   $output = find_event_time($db, $_GET['date'], $_GET['time']);
+    // } else {
+      $output = find_event_date($db, $_GET['date']);
+    // }
+    echo json_encode("success");
     if (isset($output)) {
       header("Content-type: application/json");
       echo json_encode($output);
@@ -20,20 +20,19 @@
   }
 
   function find_event_date($db, $date) {
-    $sql = "SELECT event FROM eventCal WHERE date = :date";
+    echo "1";
     try {
-      $stmt = $db->prepare($sql);
-      $info = array("date" => strtolower($date));
-      $stmt->execute($info);
+      $sql = mysqli_query($db, "SELECT event FROM calEvent WHERE date = '{$date}'");
+      $stmt = mysqli_fetch($sql, MYSQLI_ASSOC);
     }
     catch (PDOException $ex) {
       handle_db_error("A databse error occurred. Please try again later.");
     }
-    return $stmt->fetch();
+    return $stmt;
   }
 
   function find_event_time($db, $date, $time) {
-    $sql = "SELECT event FROM eventCal WHERE date = :date AND time = :time";
+    $sql = "SELECT event FROM calEvent WHERE date = :date AND time = :time";
     try {
       $stmt = $db->prepare($sql);
       $info = array("date" => strtolower($date),

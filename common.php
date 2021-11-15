@@ -7,15 +7,13 @@
    */
   function get_PDO() {
     $host = "localhost";
-    $port = "8889";           # fill in with a port if necessary (will be different mac/pc)
+    $port = "8889";
     $user = "root";
     $password = "root";
     $dbname = "caldb";
     $ds = "mysql:host={$host}:{$port};dbname={$dbname};charset=utf8";
 
     try {
-      // $db = new PDO($ds, $user, $password);
-      // $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
       $db = new mysqli($host, $user, $password, $dbname);
       return $db;
     } catch (PDOException $ex) {

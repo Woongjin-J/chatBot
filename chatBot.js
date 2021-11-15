@@ -230,10 +230,10 @@
     else if (intent === "Web.WebSearch") {
       web_search(entities);
     }
-    else if (intent === "Calendar.CreateCalendarEntry" || intent === "Calendar.CreateCalendarEntry"
-                                                       || intent === "Calendar.FindCalendarEntry") {
-      calendar_event(intent, entities);
-    }
+    // else if (intent === "Calendar.CreateCalendarEntry" || intent === "Calendar.CreateCalendarEntry"
+    //                                                    || intent === "Calendar.FindCalendarEntry") {
+    //   calendar_event(intent, entities);
+    // }
   }
 
 
@@ -1089,67 +1089,84 @@
 
 
   /* ---------------------------- Calendar Event Start ----------------------------- */
-  /**
-   *
-   * @param {String} intent
-   * @param {Array} entities
-   */
-  function calendar_event(intent, entities) {
-    // console.log("intent: ", intent);
-    // console.log("entities: ", entities);
+  // /**
+  //  *
+  //  * @param {String} intent
+  //  * @param {Array} entities
+  //  */
+  // function calendar_event(intent, entities) {
+  //   // console.log("intent: ", intent);
+  //   // console.log("entities: ", entities);
 
-    let event = {
-      subject: '',
-      startDate: '',
-      endDate: '',
-      startTime: '',
-      endTime: ''
-    };
+  //   let event = {
+  //     subject: '',
+  //     startDate: '',
+  //     endDate: '',
+  //     startTime: '',
+  //     endTime: ''
+  //   };
 
-    for (let i = 0; i < entities.length; i++) {
-      if (entities[i].type === "Calendar.Subject") event.subject = entities[i].entity;
-      if (entities[i].type === "Calendar.StartDate") event.startDate = entities[i].entity;
-      if (entities[i].type === "Calendar.EndDate") event.endDate = entities[i].entity;
-      if (entities[i].type === "Calendar.StartTime") event.startTime = entities[i].entity;
-      if (entities[i].type === "Calendar.EndTime") event.endTime = entities[i].entity;
-    }
+  //   for (let i = 0; i < entities.length; i++) {
+  //     if (entities[i].type === "Calendar.Subject") event.subject = entities[i].entity;
+  //     if (entities[i].type === "Calendar.StartDate") event.startDate = entities[i].entity;
+  //     if (entities[i].type === "Calendar.EndDate") event.endDate = entities[i].entity;
+  //     if (entities[i].type === "Calendar.StartTime") event.startTime = entities[i].entity;
+  //     if (entities[i].type === "Calendar.EndTime") event.endTime = entities[i].entity;
+  //   }
 
-    let text = "Sorry, I don't understand.";
-    if (lang === "zh-CN") text = "对不起，我不明白你的意思。";
+  //   let text = "Sorry, I don't understand.";
+  //   if (lang === "zh-CN") text = "对不起，我不明白你的意思。";
 
-    if (intent === "Calendar.CreateCalendarEntry") {
-      fetchEntry(event);
-    }
-    else if (intent === "Calendar.DeleteCalendarEntry") {
+  //   if (intent === "Calendar.CreateCalendarEntry") {
+  //     fetchEntry(event);
+  //   }
+  //   else if (intent === "Calendar.DeleteCalendarEntry") {
 
-    }
-    else if (intent === "Calendar.FindCalendarEntry") {
+  //   }
+  //   else if (intent === "Calendar.FindCalendarEntry") {
+  //     fetchFind(event);
+  //   }
+  // }
 
-    }
-  }
+  // function fetchEntry(event) {
+  //   let subject = event.subject;
+  //   // let startDate = event.startDate;
+  //   // let startTime = event.startTime;
+  //   let params = new FormData();
+  //   params.append("subject", subject);
+  //   // params.append("date", startDate);
+  //   // params.append("time", startTime);
+  //   fetch("insert.php", {method: "POST", body: params})
+  //     .then(checkStatus)
+  //     .then(event_entry)
+  //     .catch(error);
+  //     // .then(response => response.text()).then(response => {
+  //     //   console.log(response);
+  //     // }).catch(error);
+  // }
 
-  function fetchEntry(event) {
-    let url = "insert.php";
-    let subject = event.subject;
-    // let startDate = event.startDate;
-    // let startTime = event.startTime;
-    let params = new FormData();
-    params.append("subject", subject);
-    // params.append("date", startDate);
-    // params.append("time", startTime);
-    fetch("insert.php", {method: "POST", body: params})
-      .then(checkStatus)
-      .then(event_entry)
-      .catch(error);
-      // .then(response => response.text()).then(response => {
-      //   console.log(response);
-      // }).catch(error);
-  }
+  // function event_entry(info) {
+  //   console.log(info);
+  // }
 
-  function event_entry(info) {
-    console.log(info);
-  }
+  // function fetchFind(event) {
+  //   let url = "select.php";
+  //   let startDate = event.startDate;
+  //   if (startDate === "today" || startDate === "") {
+  //     startDate = new Date();
+  //     startDate = startDate.getFullYear() + '-' + (startDate.getMonth()+1) + '-' + startDate.getDate();
+  //   }
 
+  //   fetch(url + "?date=" + startDate)
+  //     .then(checkStatus)
+  //     // .then(JSON.parse)
+  //     .then(event_found)
+  //     .catch(error);
+  // }
+
+  // function event_found(info) {
+  //   console.log(info);
+  // }
   /* ---------------------------- Calendar Event End ------------------------------- */
 
 
