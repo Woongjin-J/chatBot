@@ -37,8 +37,6 @@ body {
 }
 
 #searchRespond {
-  /* width: fit-content; */
-  /* height: 25vh; */
   max-height: 25vh;
   margin: 15px 15px 10px 15px;
   border: thin solid rgb(79, 189, 152);
@@ -68,7 +66,6 @@ body {
   width: fit-content;
   overflow: scroll;
   margin: 5px 5px 5px 0;
-  /* height: 90%; */
 }
 
 #searchRespond p, #searchRespond h3 {

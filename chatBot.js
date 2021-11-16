@@ -1,3 +1,14 @@
+/**
+ * This program enables weather condition search, home automation control, and
+ * web search functions using speechSDK in both English and Chinese (default to English).
+ * OpenWeatherMap API is used for weather condition search. Remaining functions are
+ * using Azure's Speech, Tranlator, Bing Resource, and LUIS app services to fulfill
+ * the functionality.
+ *
+ * OpenWeatherMap URL: https://openweathermap.org/api
+ * azure URL of this project: https://speechchatbot.azurewebsites.net
+ */
+
 (function() {
   "use strict";
 
@@ -8,16 +19,16 @@
   let lang;
 
   // Speech service Key
-  const speechKey = "f470e25b6841498883626459deb9a1ba";
+  const speechKey = "";
 
   // LUIS prediction key & region & LUIS app ID (default in English Culture)
-  const subscriptionKey = "e7531fd877724d46b2395cb8cf7adfe6";
-  const serviceRegion = "westus";
-  let appId = "90172fe8-d914-4019-ae6a-e148ac29d755";
+  const subscriptionKey = "";
+  const serviceRegion = "";
+  let appId = "";
 
   // Translator key
-  const translatorKey = "36bb6d70543b4fc69134aa9469548009";
-  const translatorRegion = "westus2";
+  const translatorKey = "";
+  const translatorRegion = "";
 
   // OpenWeatherMap API url links
   // ONECALL_URL: weather informations
@@ -25,8 +36,8 @@
   const ONECALL_URL = "https://api.openweathermap.org/data/2.5/onecall{forcast}?lat={lat}&lon={lon}&dt={time}&units={measurement}&appid=acf380c77f1250015c7e020d4957ee34";
   const COORD_URL = "https://api.openweathermap.org/data/2.5/weather?q={city}&units={measurement}&APPID=acf380c77f1250015c7e020d4957ee34";
 
-  // Search key
-  const searchKey = "63ddfb9f83a644aca55a58f12c392697";
+  // Web Search key
+  const searchKey = "";
 
   document.addEventListener("DOMContentLoaded", init);
 
@@ -72,7 +83,7 @@
   }
 
   /**
-   * Clear the text content in the page and starts recording from the microphone.
+   * Clear the text content in the page and starts speech recognition from the microphone.
    */
   function start_talk() {
     record = !record;
@@ -90,8 +101,6 @@
 
       speechConfig.speechRecognitionLanguage = lang;
       responseConfig.speechSynthesisLanguage = lang;
-      // if (lang === "zh-CN") responseConfig.speechSynthesisVoiceName = "zh-CN-XiaomoNeural";//zh-CN-XiaomoNeural//zh-CN-XiaoxuanNeural
-      responseConfig.enableDictation();
 
       recognizer = new SpeechSDK.IntentRecognizer(speechConfig, audioConfig);
       synthesizer = new SpeechSDK.SpeechSynthesizer(responseConfig);
@@ -102,7 +111,8 @@
       recognizer.addAllIntents(lm);
 
       recognize_speech(recognizer, responseConfig);
-    } else {
+    }
+    else {
       stop_recognition(recognizer);
     }
   }
@@ -125,7 +135,8 @@
       synthesizer = new SpeechSDK.SpeechSynthesizer(responseConfig);
       if (e.result.reason == SpeechSDK.ResultReason.RecognizedIntent) {
         count = 0;
-        if (e.result.intentId === "Command.StartTalking") { // Manually added intent 'Command.StartTalking' on LUIS
+        // Calls Computer; Manually added intent 'Command.StartTalking' on LUIS
+        if (e.result.intentId === "Command.StartTalking") {
           let text;
           if (lang === "en-US") {
             if (Math.floor(Math.random() * 2) === 1) {
@@ -140,6 +151,7 @@
           display_result(text);
           listening = true;
         }
+        // Computer starts listening to the actual command
         else if (e.result.intentId !== "Computer.Respond" && listening) {
           let div = document.createElement("div");
           let p = document.createElement("p");
@@ -180,7 +192,7 @@
    * Displays instructions on how to use the service.
    * If no speech recognized for a long period of time, the recording
    * will be stopped.
-   * @param {int} count
+   * @param {int} count timer for silence
    */
    function command_instruction(count) {
     let text;
@@ -230,16 +242,12 @@
     else if (intent === "Web.WebSearch") {
       web_search(entities);
     }
-    // else if (intent === "Calendar.CreateCalendarEntry" || intent === "Calendar.CreateCalendarEntry"
-    //                                                    || intent === "Calendar.FindCalendarEntry") {
-    //   calendar_event(intent, entities);
-    // }
   }
 
 
   /* ---------------------------- Weather Request Start ---------------------------- */
   /**
-   * Determines the weather request and respond with both text and audio
+   * Determines the weather request and respond with both text and audio format
    * @param {String} intent
    * @param {JSON} entities
    */
@@ -247,10 +255,10 @@
     let url;
     let len = entities.length;
     let unit = update_unit(entities);
-
-    // Update the givenDate if it's not the current date
     let today = new Date();
     let givenDate = today;
+
+    // Update the givenDate if it's not the current date
     if (len > 0) {
       if (entities[len-1].type === "builtin.datetimeV2.date" ||
           entities[len-1].type === "builtin.datetimeV2.datetime") {
@@ -302,7 +310,9 @@
     else { // specified location
       let city;
       for (let i = 0; i < len; i++) {
-        if (entities[i].type === "builtin.geographyV2.city" || entities[i].type === "Weather.Location") city = entities[i].entity;
+        if (entities[i].type === "builtin.geographyV2.city" || entities[i].type === "Weather.Location") {
+          city = entities[i].entity;
+        }
       }
       if (lang === "zh-CN") {
         city = await translate(city, 'en');
@@ -394,15 +404,16 @@
   /**
    * Returns present weather condition message.
    * @param {String} condition
-   * @param {JSON} info
+   * @param {JSON} info weather information
    * @param {String} unit
    * @returns {String} Respond message
    */
   function present_weather(condition, info, unit) {
     let text;
     if (lang === "en-US") {
+      let weatherID = info.current.weather[0].id;
       text = "It's ";
-      if (condition === "thunderstorm" || (info.current.weather[0].id > 700 && info.current.weather[0].id < 800 && condition !== "foggy")) {
+      if (condition === "thunderstorm" || (weatherID > 700 && weatherID < 800 && condition !== "foggy")) {
         text = "There's ";
       }
       text += "currently " + condition + " and the temperature is " + info.current.temp + unit + ".\n";
@@ -415,7 +426,7 @@
   /**
    * Returns past weather condition message.
    * @param {String} condition
-   * @param {JSON} info
+   * @param {JSON} info weather information
    * @param {Array} entities
    * @param {String} unit
    * @returns {String} Respond message
@@ -423,8 +434,9 @@
   function past_weather(condition, info, entities, unit) {
     let text;
     if (lang === "en-US") {
+      let weatherID = info.current.weather[0].id;
       text = "It was ";
-      if (condition === "thunderstorm" || (info.current.weather[0].id > 700 && info.current.weather[0].id < 800 && condition !== "foggy")) {
+      if (condition === "thunderstorm" || (weatherID > 700 && weatherID < 800 && condition !== "foggy")) {
         text = "There was ";
       }
       text += condition + " and the temperature was " + info.current.temp + unit + ".\n";
@@ -437,7 +449,7 @@
 
   /**
    * Returns future weather condition message.
-   * @param {JSON} info
+   * @param {JSON} info weather information
    * @param {int} diff_in_days
    * @param {Array} entities
    * @param {String} unit
@@ -447,8 +459,9 @@
     let text;
     let condition = update_condition(info.daily[Math.round(diff_in_days)].weather[0].main);
     if (lang === "en-US") {
+      let weatherID = info.current.weather[0].id;
       text = "It's expected to be ";
-      if (condition === "thunderstorm" || (info.current.weather[0].id > 700 && info.current.weather[0].id < 800 && condition !== "foggy")) {
+      if (condition === "thunderstorm" || (weatherID > 700 && weatherID < 800 && condition !== "foggy")) {
         text = "It's expected to have ";
       }
       text += condition + " and the high will be " +
@@ -465,7 +478,7 @@
 
   /**
    * Returns present temperature message.
-   * @param {JSON} info
+   * @param {JSON} info weather information
    * @param {String} unit
    * @returns {String} Respond message
    */
@@ -479,7 +492,7 @@
 
   /**
    * Returns past temperature message.
-   * @param {JSON} info
+   * @param {JSON} info weather information
    * @param {Array} entities
    * @param {String} unit
    * @returns {String} Respond message
@@ -495,7 +508,7 @@
 
   /**
    * Returns future temperature message.
-   * @param {JSON} info
+   * @param {JSON} info weather information
    * @param {int} diff_in_days
    * @param {Array} entities
    * @param {String} unit
@@ -514,7 +527,7 @@
 
   /**
    * Returns present weather advisory/alert message.
-   * @param {JSON} info
+   * @param {JSON} info weather information
    * @param {String} condition
    * @param {String} unit
    * @returns {String} Respond message
@@ -536,7 +549,7 @@
 
   /**
    * Returns future weather advisory message.
-   * @param {JSON} info
+   * @param {JSON} info weather information
    * @param {int} diff_in_days
    * @param {Array} entities
    * @param {String} unit
@@ -644,7 +657,7 @@
   }
 
   /**
-   * Check if the date requested is in the range
+   * Check if the date requested is in the range of search
    * @param {String} givenDate
    * @param {String} today
    * @param {int} diff_in_days
@@ -715,7 +728,7 @@
 
   /* ---------------------------- Home Automation Start ---------------------------- */
   /**
-   * Determines which home automation action need to take (i.e. turn on the desk lamp)
+   * Determines which home automation need action to be taken (i.e. turn on the desk lamp)
    * @param {String} intent
    * @param {JSON} entities
    */
@@ -732,9 +745,18 @@
         device.all = false;
         device.location = entities[i].entity;
       }
-      if (entities[i].type === "HomeAutomation.DeviceType") device.type = entities[i].entity;
-      if (entities[i].type === "HomeAutomation.Setting") device.setting = entities[i].entity;
-      if (entities[i].type === "HomeAutomation.Quantifier") device.all = true;
+
+      if (entities[i].type === "HomeAutomation.DeviceType") {
+        device.type = entities[i].entity;
+      }
+
+      if (entities[i].type === "HomeAutomation.Setting") {
+        device.setting = entities[i].entity;
+      }
+
+      if (entities[i].type === "HomeAutomation.Quantifier") {
+        device.all = true;
+      }
     }
 
     let text;
@@ -894,7 +916,6 @@
         } else {
           http += "search?q=" + searchText;
         }
-        console.log(http);
         text = direct_to_url(http, '');
       }
       else {
@@ -936,7 +957,7 @@
    * Shows the link to the user and open a new tab to the link requested.
    * @param {String} builtInUrl
    * @param {JSON} result
-   * @returns {String} Audio respond
+   * @returns {String} Respond message
    */
   function direct_to_url(builtInUrl, result) {
     let text;
@@ -958,7 +979,7 @@
     }
 
     text = "Ok, here's the link to " + name + ".";
-    if (lang === "zh-CN") text = "好的，下面的链接是" + name + "。";
+    if (lang === "zh-CN") text = "好的，下面是" + name + "的网址。";
     display_result(text);
 
     let result_div = document.createElement("div");
@@ -982,7 +1003,7 @@
    * Displays the results of the query.
    * @param {String} query
    * @param {JSON} result
-   * @returns {String} Audio respond
+   * @returns {String} Respond message
    */
   function display_query_results(query, result) {
     let text;
@@ -1026,7 +1047,7 @@
    * @param {String} text description of searched info
    * @param {String} image
    * @param {String} url
-   * @returns {Object} Whole tag of searched info
+   * @returns {Object} <a> tag of searched info
    */
   function build_result_block(name, text, image, url) {
     let div = document.createElement("div");
@@ -1088,88 +1109,6 @@
   /* ------------------------------ Web Search End --------------------------------- */
 
 
-  /* ---------------------------- Calendar Event Start ----------------------------- */
-  // /**
-  //  *
-  //  * @param {String} intent
-  //  * @param {Array} entities
-  //  */
-  // function calendar_event(intent, entities) {
-  //   // console.log("intent: ", intent);
-  //   // console.log("entities: ", entities);
-
-  //   let event = {
-  //     subject: '',
-  //     startDate: '',
-  //     endDate: '',
-  //     startTime: '',
-  //     endTime: ''
-  //   };
-
-  //   for (let i = 0; i < entities.length; i++) {
-  //     if (entities[i].type === "Calendar.Subject") event.subject = entities[i].entity;
-  //     if (entities[i].type === "Calendar.StartDate") event.startDate = entities[i].entity;
-  //     if (entities[i].type === "Calendar.EndDate") event.endDate = entities[i].entity;
-  //     if (entities[i].type === "Calendar.StartTime") event.startTime = entities[i].entity;
-  //     if (entities[i].type === "Calendar.EndTime") event.endTime = entities[i].entity;
-  //   }
-
-  //   let text = "Sorry, I don't understand.";
-  //   if (lang === "zh-CN") text = "对不起，我不明白你的意思。";
-
-  //   if (intent === "Calendar.CreateCalendarEntry") {
-  //     fetchEntry(event);
-  //   }
-  //   else if (intent === "Calendar.DeleteCalendarEntry") {
-
-  //   }
-  //   else if (intent === "Calendar.FindCalendarEntry") {
-  //     fetchFind(event);
-  //   }
-  // }
-
-  // function fetchEntry(event) {
-  //   let subject = event.subject;
-  //   // let startDate = event.startDate;
-  //   // let startTime = event.startTime;
-  //   let params = new FormData();
-  //   params.append("subject", subject);
-  //   // params.append("date", startDate);
-  //   // params.append("time", startTime);
-  //   fetch("insert.php", {method: "POST", body: params})
-  //     .then(checkStatus)
-  //     .then(event_entry)
-  //     .catch(error);
-  //     // .then(response => response.text()).then(response => {
-  //     //   console.log(response);
-  //     // }).catch(error);
-  // }
-
-  // function event_entry(info) {
-  //   console.log(info);
-  // }
-
-  // function fetchFind(event) {
-  //   let url = "select.php";
-  //   let startDate = event.startDate;
-  //   if (startDate === "today" || startDate === "") {
-  //     startDate = new Date();
-  //     startDate = startDate.getFullYear() + '-' + (startDate.getMonth()+1) + '-' + startDate.getDate();
-  //   }
-
-  //   fetch(url + "?date=" + startDate)
-  //     .then(checkStatus)
-  //     // .then(JSON.parse)
-  //     .then(event_found)
-  //     .catch(error);
-  // }
-
-  // function event_found(info) {
-  //   console.log(info);
-  // }
-  /* ---------------------------- Calendar Event End ------------------------------- */
-
-
   /* --------------------------- Helper Functions Start  --------------------------- */
   /**
    * Returns the element that has the ID attribute with the specified value.
@@ -1185,7 +1124,7 @@
    * @param {string} selector - CSS query selector.
    * @returns {object} The first DOM object matching the query.
    */
-    function qs(selector) { // less common, but you may find it helpful
+    function qs(selector) {
     return document.querySelector(selector);
   }
 
@@ -1219,7 +1158,7 @@
   /**
    * Converts the returning text message into audio output to play out through the speaker.
    * Displays the returning text message in the respond block.
-   * @param {String} text Output text
+   * @param {String} text Output message
    */
    function synthesize_speech(text) {
     synthesizer.speakTextAsync(text,
@@ -1227,15 +1166,15 @@
         synthesizer.close();
         return result.audioData;
       },
-      function(error) {
-        console.log(error);
+      function(err) {
+        console.log(err);
         synthesizer.close();
       });
   }
 
   /**
    * Displays the result message on the screen.
-   * @param {String} text
+   * @param {String} text Result message
    */
   function display_result(text) {
     let div = document.createElement("div");
