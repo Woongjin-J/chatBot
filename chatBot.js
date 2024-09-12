@@ -63,7 +63,7 @@
    */
   function change_to_chinese() {
     lang = "zh-CN";
-    appId = "79f53564-0a5f-4b4a-b54c-0007ff54dbcf";
+    appId = "";
     qs("span").innerHTML = "(中文-简体)";
     id("btn-txt").innerHTML = "开始";
     document.documentElement.setAttribute("lang", "zh");
@@ -75,7 +75,7 @@
    */
   function change_to_english() {
     lang = "en-US";
-    appId = "90172fe8-d914-4019-ae6a-e148ac29d755";
+    appId = "";
     qs("span").innerHTML = "(English)";
     id("btn-txt").innerHTML = "Start";
     document.documentElement.setAttribute("lang", "en");
